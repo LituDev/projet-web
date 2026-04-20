@@ -1,0 +1,25 @@
+{
+  "name": "gumes-marketplace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "gumes marketplace — plateforme de vente de produits locaux (Technologies Web IAI1).",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm --workspace server run dev",
+    "dev:client": "npm --workspace client run dev",
+    "start": "npm --workspace server start",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "npm --workspace server run db:migrate",
+    "db:migrate:down": "npm --workspace server run db:migrate:down",
+    "db:seed": "npm --workspace server run db:seed",
+    "db:reset": "docker compose down -v && docker compose up -d && sleep 3 && npm run db:migrate && npm run db:seed",
+    "test": "npm --workspace server run test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

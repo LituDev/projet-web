@@ -1,0 +1,25 @@
+:root {
+  --app-max-width: 1280px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: var(--p-surface-50);
+  color: var(--p-text-color);
+}
+
+.app-container {
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* Thème par rôle : surcharger --p-primary-color sur <html> via classes */
+html.role-seller { --p-primary-color: var(--p-green-500); }
+html.role-admin  { --p-primary-color: var(--p-red-500); }
+html.role-user   { --p-primary-color: var(--p-blue-500); }
