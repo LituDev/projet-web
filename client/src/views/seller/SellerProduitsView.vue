@@ -150,13 +150,10 @@ onMounted(charger);
 <template>
   <header class="head">
     <h2>Mes produits</h2>
-    <Button label="Ajouter" icon="pi pi-plus" @click="ouvrirCreation" :disabled="mesEntreprises.length === 0" />
+    <Button label="Ajouter" icon="pi pi-plus" @click="ouvrirCreation" />
   </header>
 
   <Message v-if="err" severity="error" :closable="false">{{ err }}</Message>
-  <Message v-if="mesEntreprises.length === 0" severity="warn" :closable="false">
-    Vous n'avez pas encore d'entreprise. Créez-en une avant d'ajouter des produits.
-  </Message>
 
   <DataTable :value="produits" :loading="loading" paginator :rows="15" striped-rows>
     <Column field="nom" header="Nom" :sortable="true" />

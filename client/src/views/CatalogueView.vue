@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router';
 import DataView from 'primevue/dataview';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
-import ToggleButton from 'primevue/togglebutton';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Paginator from 'primevue/paginator';
@@ -39,7 +38,7 @@ async function toggleFavori(p) {
   }
 }
 
-const filtres = reactive({ q: '', nature: null, bio: null });
+const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc' });
 const produits = ref([]);
 const total = ref(0);
 const limit = ref(24);
@@ -56,6 +55,20 @@ const natures = [
   { label: 'Boisson', value: 'boisson' },
 ];
 
+const bios = [
+  { label: 'Tous', value: null },
+  { label: 'Bio', value: true },
+  { label: 'Non bio', value: false },
+];
+
+const tris = [
+  { label: 'Nom (A-Z)', value: 'nom_asc' },
+  { label: 'Prix croissant', value: 'prix_asc' },
+  { label: 'Prix décroissant', value: 'prix_desc' },
+  { label: 'Stock disponible', value: 'stock_desc' },
+  { label: 'Bio en premier', value: 'bio_first' },
+];
+
 async function charger() {
   loading.value = true;
   try {
@@ -63,6 +76,7 @@ async function charger() {
     if (filtres.q) params.set('q', filtres.q);
     if (filtres.nature) params.set('nature', filtres.nature);
     if (filtres.bio !== null) params.set('bio', String(filtres.bio));
+    if (filtres.tri) params.set('tri', filtres.tri);
     params.set('limit', String(limit.value));
     params.set('offset', String(offset.value));
     const res = await api.get(`/produits?${params}`);
@@ -117,7 +131,8 @@ onMounted(charger);
   <div class="filtres">
     <InputText v-model="filtres.q" placeholder="Rechercher…" class="search" />
     <Select v-model="filtres.nature" :options="natures" option-label="label" option-value="value" placeholder="Nature" />
-    <ToggleButton v-model="filtres.bio" on-label="Bio" off-label="Tous" on-icon="pi pi-check" off-icon="pi pi-circle" />
+    <Select v-model="filtres.bio" :options="bios" option-label="label" option-value="value" placeholder="Bio" />
+    <Select v-model="filtres.tri" :options="tris" option-label="label" option-value="value" placeholder="Trier par" />
   </div>
 
   <DataView :value="produits" :loading="loading" layout="grid">

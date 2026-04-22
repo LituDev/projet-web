@@ -31,9 +31,18 @@ async function assertEntrepriseOwner(entrepriseId, session) {
 // Liste publique — via la vue v_produits_disponibles (filtre saison+visible+stock)
 router.get('/', async (req, res, next) => {
   try {
-    const { q, nature, bio, limit, offset } = produitListQuerySchema.parse(req.query);
+    const { q, nature, bio, tri, limit, offset } = produitListQuerySchema.parse(req.query);
     const clauses = [];
     const params = [];
+    const ORDER_BY = {
+      nom_asc: 'nom ASC',
+      prix_asc: 'prix_cents ASC, nom ASC',
+      prix_desc: 'prix_cents DESC, nom ASC',
+      stock_desc: 'stock DESC, nom ASC',
+      bio_first: 'bio DESC, nom ASC',
+    };
+    const orderBy = ORDER_BY[tri] ?? ORDER_BY.nom_asc;
+
     if (q) { params.push(`%${q}%`); clauses.push(`(nom ILIKE $${params.length} OR description ILIKE $${params.length})`); }
     if (nature) { params.push(nature); clauses.push(`nature = $${params.length}`); }
     if (bio === 'true') clauses.push('bio = TRUE');
@@ -46,7 +55,7 @@ router.get('/', async (req, res, next) => {
               entreprise_id, entreprise_nom, producteur_nom, est_saisonnier
        FROM v_produits_disponibles
        ${where}
-       ORDER BY nom
+        ORDER BY ${orderBy}
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
@@ -54,7 +63,7 @@ router.get('/', async (req, res, next) => {
       `SELECT COUNT(*)::INT AS total FROM v_produits_disponibles ${where}`,
       params.slice(0, -2),
     );
-    res.json({ data: rows, total: countResult.rows[0].total, limit, offset });
+    res.json({ data: rows, total: countResult.rows[0].total, tri, limit, offset });
   } catch (err) { next(err); }
 });
 
