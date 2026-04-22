@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
@@ -25,6 +25,12 @@ const quantite = ref(1);
 const loading = ref(false);
 const err = ref('');
 
+const stockRestant = computed(() => {
+  if (!produit.value) return 0;
+  const dejaDansPanier = panier.quantiteProduit(produit.value.id);
+  return Math.max(0, Number(produit.value.stock || 0) - dejaDansPanier);
+});
+
 const natureLabel = {
   legume: 'Légume', fruit: 'Fruit', viande: 'Viande',
   fromage: 'Fromage', epicerie: 'Épicerie', boisson: 'Boisson', autre: 'Autre',
@@ -45,13 +51,18 @@ async function charger() {
 }
 
 function ajouterPanier() {
-  panier.ajouter({
+  const result = panier.ajouter({
     id: produit.value.id,
     nom: produit.value.nom,
     prix_cents: produit.value.prix_cents,
     entreprise_nom: produit.value.entreprise_nom,
+    stock: produit.value.stock,
   }, quantite.value);
-  toast.add({ severity: 'success', summary: 'Ajouté au panier', detail: `${quantite.value} × ${produit.value.nom}`, life: 1500 });
+  if (!result.ok) {
+    toast.add({ severity: 'warn', summary: 'Stock maximum atteint', detail: `Stock disponible: ${produit.value.stock}`, life: 2200 });
+    return;
+  }
+  toast.add({ severity: 'success', summary: 'Ajouté au panier', detail: `${result.quantiteAjoutee} × ${produit.value.nom}`, life: 1500 });
 }
 
 async function toggleFavori() {
@@ -121,13 +132,17 @@ onMounted(charger);
       <template #content>
         <div class="prix">{{ formatPrix(produit.prix_cents) }}</div>
         <div class="achat-row">
-          <InputNumber v-model="quantite" :min="1" :max="Math.max(1, produit.stock)" show-buttons button-layout="horizontal" :disabled="produit.stock === 0" />
+          <InputNumber v-model="quantite" :min="1" :max="Math.max(1, stockRestant)" show-buttons button-layout="horizontal" :disabled="stockRestant === 0" />
           <Button
             label="Ajouter au panier"
             icon="pi pi-shopping-cart"
-            :disabled="produit.stock === 0"
+            :disabled="stockRestant === 0"
             @click="ajouterPanier" />
         </div>
+        <small class="stock-info" :class="{ out: stockRestant === 0 }">
+          <span v-if="stockRestant === 0">Stock déjà atteint dans votre panier</span>
+          <span v-else>Encore {{ stockRestant }} disponible(s)</span>
+        </small>
         <Button
           :label="favoris.has(produit.entreprise_id) ? 'Retirer le producteur des favoris' : 'Ajouter le producteur aux favoris'"
           :icon="favoris.has(produit.entreprise_id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
@@ -161,4 +176,6 @@ onMounted(charger);
 .lieux li { padding: .2rem 0; }
 .achat .prix { font-size: 2rem; font-weight: 700; color: var(--p-primary-color); margin-bottom: 1rem; }
 .achat-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+.stock-info { display: block; margin-bottom: 1rem; color: #166534; }
+.stock-info.out { color: #b91c1c; }
 </style>

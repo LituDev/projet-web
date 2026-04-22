@@ -84,8 +84,24 @@ watch(filtres, () => {
 function onPage(e) { offset.value = e.first; charger(); }
 
 function ajouter(p) {
-  panier.ajouter(p, 1);
+  const result = panier.ajouter(p, 1);
+  if (!result.ok) {
+    toast.add({ severity: 'warn', summary: 'Stock maximum atteint', detail: `Stock disponible: ${p.stock}`, life: 2200 });
+    return;
+  }
+
+  if (result.quantiteAjoutee < 1) {
+    toast.add({ severity: 'warn', summary: 'Stock insuffisant', detail: p.nom, life: 2000 });
+    return;
+  }
+
   toast.add({ severity: 'success', summary: 'Ajouté au panier', detail: p.nom, life: 1500 });
+}
+
+function stockRestantPourAjout(p) {
+  const dejaDansPanier = panier.quantiteProduit(p.id);
+  const stock = Number.isFinite(Number(p.stock)) ? Number(p.stock) : Infinity;
+  return Math.max(0, stock - dejaDansPanier);
 }
 
 function formatPrix(cents) {
@@ -131,9 +147,19 @@ onMounted(charger);
             <i class="pi pi-user" /> {{ p.producteur_nom }}<br>
             <i class="pi pi-shop" /> {{ p.entreprise_nom }}
           </p>
+          <p class="stock" :class="{ low: p.stock > 0 && p.stock < 5, out: p.stock === 0 }">
+            <i class="pi pi-box" />
+            <span v-if="p.stock === 0">Rupture de stock</span>
+            <span v-else>Stock disponible: {{ p.stock }}</span>
+          </p>
           <footer>
             <span class="prix">{{ formatPrix(p.prix_cents) }}</span>
-            <Button label="Ajouter" icon="pi pi-shopping-cart" size="small" @click="ajouter(p)" />
+            <Button
+              label="Ajouter"
+              icon="pi pi-shopping-cart"
+              size="small"
+              :disabled="stockRestantPourAjout(p) === 0"
+              @click="ajouter(p)" />
           </footer>
         </article>
       </div>
@@ -189,6 +215,16 @@ onMounted(charger);
 .card h3 a:hover { color: var(--p-primary-color); }
 .card .desc { color: var(--p-text-muted-color); font-size: .9rem; margin: 0; flex: 1; }
 .card .meta { color: var(--p-text-muted-color); font-size: .85rem; margin: 0; line-height: 1.5; }
+.stock {
+  margin: 0;
+  font-size: .88rem;
+  color: #166534;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+.stock.low { color: #b45309; }
+.stock.out { color: #b91c1c; }
 .card footer { display: flex; justify-content: space-between; align-items: center; }
 .prix { font-weight: 700; font-size: 1.1rem; color: var(--p-primary-color); }
 .empty { text-align: center; padding: 3rem; color: var(--p-text-muted-color); }

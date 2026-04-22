@@ -42,7 +42,14 @@ function passerCommande() {
         <Column field="entreprise_nom" header="Producteur" />
         <Column header="Quantité" style="width: 10rem">
           <template #body="{ data }">
-            <InputNumber v-model="data.quantite" show-buttons :min="1" :max="99" button-layout="horizontal" @update:model-value="panier.persist()" />
+            <InputNumber
+              v-model="data.quantite"
+              show-buttons
+              :min="1"
+              :max="Number.isFinite(Number(data.stock)) ? Number(data.stock) : 99"
+              button-layout="horizontal"
+              @update:model-value="(value) => panier.setQuantite(data.produit_id, value)" />
+            <small v-if="Number.isFinite(Number(data.stock))" class="stock-note">Stock max: {{ data.stock }}</small>
           </template>
         </Column>
         <Column header="Prix" style="width: 8rem">
@@ -80,5 +87,10 @@ function passerCommande() {
   display: flex;
   justify-content: space-between;
   margin-top: 1.5rem;
+}
+.stock-note {
+  display: block;
+  margin-top: .3rem;
+  color: var(--p-text-muted-color);
 }
 </style>
