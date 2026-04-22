@@ -1,0 +1,310 @@
+@startuml gumes_marketplace_ERD
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 70
+skinparam padding 8
+skinparam ArrowFontSize 13
+skinparam ArrowFontStyle bold
+skinparam ArrowMessageAlignment center
+skinparam EntityFontSize 13
+skinparam EntityAttributeFontSize 12
+skinparam ArrowThickness 1
+hide circle
+hide methods
+
+' ══════════════════ Auth & Profils ══════════════════
+entity "utilisateur" as utilisateur {
+  *id : UUID <<PK>>
+  --
+  *email : CITEXT <<UK>>
+  *password_hash : TEXT
+  *role : TEXT (admin|seller|user)
+  *created_at : TIMESTAMPTZ
+  last_login_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+entity "profil_client" as profil_client {
+  *user_id : UUID <<PK, FK>>
+  --
+  *nom : TEXT
+  *prenom : TEXT
+  *tel : TEXT
+  *adresse : TEXT
+}
+
+entity "adresse_geocodee" as adresse_geocodee {
+  *user_id : UUID <<PK, FK>>
+  --
+  *lat : FLOAT
+  *lon : FLOAT
+  *geom : GEOGRAPHY(Point)
+  *geocoded_at : TIMESTAMPTZ
+}
+
+entity "profil_producteur" as profil_producteur {
+  *user_id : UUID <<PK, FK>>
+  --
+  *nom : TEXT
+  *prenom : TEXT
+  *tel : TEXT
+}
+
+' ══════════════════ Entreprises & Lieux ══════════════════
+entity "entreprise" as entreprise {
+  *id : UUID <<PK>>
+  --
+  *owner_id : UUID <<FK>>
+  *nom : TEXT
+  *siret : TEXT <<UK>>
+  description : TEXT
+  *created_at : TIMESTAMPTZ
+}
+
+entity "lieu_de_vente" as lieu_de_vente {
+  *id : UUID <<PK>>
+  --
+  *entreprise_id : UUID <<FK>>
+  *nom : TEXT
+  *adresse : TEXT
+  *lat : FLOAT
+  *lon : FLOAT
+  *geom : GEOGRAPHY(Point)
+  *actif : BOOLEAN
+}
+
+entity "horaire" as horaire {
+  *id : SERIAL <<PK>>
+  --
+  *lieu_id : UUID <<FK>>
+  *jour_semaine : SMALLINT (0=lun..6)
+  *heure_debut : TIME
+  *heure_fin : TIME
+}
+
+entity "point_relais" as point_relais {
+  *id : UUID <<PK>>
+  --
+  *nom : TEXT
+  *adresse : TEXT
+  *lat : FLOAT
+  *lon : FLOAT
+  *geom : GEOGRAPHY(Point)
+  *actif : BOOLEAN
+}
+
+entity "horaire_point_relais" as horaire_point_relais {
+  *id : SERIAL <<PK>>
+  --
+  *relais_id : UUID <<FK>>
+  *jour_semaine : SMALLINT (0=lun..6)
+  *heure_debut : TIME
+  *heure_fin : TIME
+}
+
+' ══════════════════ Catalogue ══════════════════
+entity "produit" as produit {
+  *id : UUID <<PK>>
+  --
+  *entreprise_id : UUID <<FK>>
+  *nom : TEXT
+  description : TEXT
+  *nature : TEXT (legume|fruit|viande|fromage|epicerie|boisson|autre)
+  *bio : BOOLEAN
+  *prix_cents : INTEGER >= 0
+  *stock : INTEGER >= 0
+  *shippable : BOOLEAN
+  *visibilite : TEXT (visible|hidden|out_of_stock)
+  *est_saisonnier : BOOLEAN
+  *created_at : TIMESTAMPTZ
+  *updated_at : TIMESTAMPTZ
+}
+
+entity "produit_saison" as produit_saison {
+  *produit_id : UUID <<PK, FK>>
+  --
+  *mois_debut : SMALLINT (1-12)
+  *mois_fin : SMALLINT (1-12)
+}
+
+entity "produit_lieu_vente" as produit_lieu_vente {
+  *produit_id : UUID <<PK, FK>>
+  *lieu_id : UUID <<PK, FK>>
+  --
+  *entreprise_id : UUID <<FK>>
+}
+
+' ══════════════════ Commandes ══════════════════
+entity "commande" as commande {
+  *id : UUID <<PK>>
+  --
+  *client_id : UUID <<FK>>
+  *statut : TEXT (pending|accepted|refused|preparing|ready_for_pickup|shipped|delivered|cancelled)
+  *mode_livraison : TEXT (pickup_store|pickup_relay|home_delivery)
+  *total_produits_cents : INTEGER >= 0
+  *frais_port_cents : INTEGER >= 0
+  *total_ttc_cents : INTEGER [GENERATED ALWAYS AS STORED]
+  *date_commande : TIMESTAMPTZ
+  *updated_at : TIMESTAMPTZ
+}
+
+entity "ligne_commande" as ligne_commande {
+  *id : SERIAL <<PK>>
+  --
+  *commande_id : UUID <<FK>>
+  *produit_id : UUID <<FK>>
+  *quantite : INTEGER > 0
+  *prix_unitaire_cents : INTEGER >= 0
+}
+
+entity "commande_pickup_store" as commande_pickup_store {
+  *commande_id : UUID <<PK, FK>>
+  --
+  *lieu_id : UUID <<FK>>
+}
+
+entity "commande_pickup_relay" as commande_pickup_relay {
+  *commande_id : UUID <<PK, FK>>
+  --
+  *relais_id : UUID <<FK>>
+}
+
+entity "commande_home_delivery" as commande_home_delivery {
+  *commande_id : UUID <<PK, FK>>
+  --
+  *adresse : TEXT
+  *lat : FLOAT
+  *lon : FLOAT
+  *geom : GEOGRAPHY(Point)
+}
+
+' ══════════════════ Paiement ══════════════════
+entity "paiement" as paiement {
+  *id : UUID <<PK>>
+  --
+  *commande_id : UUID <<FK, UK>>
+  *montant_cents : INTEGER >= 0
+  *methode : TEXT (card_fake|on_pickup|on_delivery)
+  *statut : TEXT (pending|success|declined|error|refunded)
+  *idempotency_key : TEXT <<UK>>
+  *created_at : TIMESTAMPTZ
+  *updated_at : TIMESTAMPTZ
+}
+
+entity "paiement_carte" as paiement_carte {
+  *paiement_id : UUID <<PK, FK>>
+  --
+  *last4 : CHAR(4)
+}
+
+' ══════════════════ Favoris, Listes, Alertes ══════════════════
+entity "favori" as favori {
+  *client_id : UUID <<PK, FK>>
+  *entreprise_id : UUID <<PK, FK>>
+  --
+  *created_at : TIMESTAMPTZ
+}
+
+entity "liste_courses" as liste_courses {
+  *id : UUID <<PK>>
+  --
+  *client_id : UUID <<FK>>
+  *nom : TEXT
+  *created_at : TIMESTAMPTZ
+}
+
+entity "item_liste_courses" as item_liste_courses {
+  *id : SERIAL <<PK>>
+  --
+  *liste_id : UUID <<FK>>
+  *produit_id : UUID <<FK>>
+  *quantite : INTEGER > 0
+}
+
+entity "alerte" as alerte {
+  *id : UUID <<PK>>
+  --
+  emetteur_id : UUID <<FK>> (nullable, ON DELETE SET NULL)
+  *type : TEXT (produit|commande|lieu_de_vente|autre)
+  cible_id : UUID (nullable)
+  *description : TEXT
+  *statut : TEXT (open|in_progress|closed)
+  resolved_at : TIMESTAMPTZ (nullable)
+  resolved_by : UUID <<FK>> (nullable)
+  *created_at : TIMESTAMPTZ
+}
+
+entity "audit_log" as audit_log {
+  *id : BIGSERIAL <<PK>>
+  --
+  actor_id : UUID <<FK>> (nullable, ON DELETE SET NULL)
+  *action : TEXT
+  target_type : TEXT
+  target_id : TEXT
+  *payload : JSONB
+  ip : INET
+  user_agent : TEXT
+  *created_at : TIMESTAMPTZ
+}
+
+' ══════════════════ Session & Référentiels statiques ══════════════════
+entity "session" as session {
+  *sid : VARCHAR <<PK>>
+  --
+  *sess : JSON
+  *expire : TIMESTAMP
+}
+
+entity "shipping_rate" as shipping_rate {
+  *mode : TEXT <<PK>> (pickup_store|pickup_relay|home_delivery)
+  --
+  *prix_cents : INTEGER >= 0
+  *seuil_franco_cents : INTEGER
+  *actif : BOOLEAN
+}
+
+' ══════════════════ Relations ══════════════════
+
+' Auth & profils
+utilisateur "1" -- "0..1" profil_client         : "possède"
+utilisateur "1" -- "0..1" profil_producteur     : "possède"
+profil_client "1" -- "0..1" adresse_geocodee    : "est géocodée en"
+
+' Entreprises
+utilisateur "1" -- "0..*" entreprise            : "gère"
+entreprise "1" -- "1..*" lieu_de_vente          : "opère"
+lieu_de_vente "1" -- "0..*" horaire             : "applique"
+point_relais "1" -- "0..*" horaire_point_relais  : "applique"
+
+' Catalogue
+entreprise "1" -- "0..*" produit                : "propose"
+produit "1" -- "0..1" produit_saison            : "est disponible en"
+produit "1" -- "0..*" produit_lieu_vente        : "est vendu via"
+lieu_de_vente "1" -- "0..*" produit_lieu_vente  : "distribue"
+
+' Commandes
+utilisateur "1" -- "0..*" commande              : "passe"
+commande "1" -- "1..*" ligne_commande           : "contient"
+produit "1" -- "0..*" ligne_commande            : "figure dans"
+commande "1" -- "0..1" commande_pickup_store    : "est retirée en magasin"
+commande "1" -- "0..1" commande_pickup_relay    : "est retirée en relais"
+commande "1" -- "0..1" commande_home_delivery   : "est livrée à domicile"
+lieu_de_vente "1" -- "0..*" commande_pickup_store : "accueille le retrait de"
+point_relais "1" -- "0..*" commande_pickup_relay  : "accueille le retrait de"
+
+' Paiement
+commande "1" -- "0..1" paiement                : "est réglée par"
+paiement "1" -- "0..1" paiement_carte          : "est détaillé par"
+
+' Favoris & listes
+utilisateur "1" -- "0..*" favori               : "met en favori"
+entreprise "1" -- "0..*" favori                : "est mis en favori par"
+utilisateur "1" -- "0..*" liste_courses        : "crée"
+liste_courses "1" -- "1..*" item_liste_courses  : "contient"
+produit "1" -- "0..*" item_liste_courses        : "est ajouté à"
+
+' Alertes & audit
+utilisateur "1" -- "0..*" alerte               : "émet"
+utilisateur "1" -- "0..*" audit_log            : "génère"
+
+@enduml
