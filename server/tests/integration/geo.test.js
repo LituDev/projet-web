@@ -1,6 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { request } from '../helpers/app.js';
+import { dbQuery } from '../helpers/fixtures.js';
 
 describe('geo', () => {
   test('GET /lieux → tableau non vide', async () => {
@@ -26,7 +27,14 @@ describe('geo', () => {
   });
 
   test('GET /points-relais avec lat/lon → trié par distance croissante', async () => {
-    const res = await request().get('/api/geo/points-relais?lat=45.764&lon=4.8357&rayon_m=200000');
+    const { rows } = await dbQuery(
+      `SELECT lat, lon FROM point_relais WHERE actif = TRUE ORDER BY id LIMIT 1`,
+    );
+    assert.ok(rows.length >= 1);
+
+    const lat = Number(rows[0].lat);
+    const lon = Number(rows[0].lon);
+    const res = await request().get(`/api/geo/points-relais?lat=${lat}&lon=${lon}&rayon_m=200000`);
     assert.equal(res.status, 200);
     const { data } = res.body;
     assert.ok(data.length >= 1);
