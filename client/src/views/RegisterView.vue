@@ -30,6 +30,14 @@ const roleOptions = [
   { label: 'Je suis producteur', value: 'seller' },
 ];
 
+function buildRegisterErrorMessage(err) {
+  if (err?.status === 409) return 'Un compte existe déjà avec cet email.';
+  if (Array.isArray(err?.details) && err.details.length > 0) {
+    return err.details.map((d) => d.message).join(' ');
+  }
+  return err?.message || "Impossible de créer le compte pour le moment.";
+}
+
 async function submit() {
   errorMsg.value = '';
   pending.value = true;
@@ -40,7 +48,9 @@ async function submit() {
     toast.add({ severity: 'success', summary: 'Compte créé', life: 2000 });
     router.replace('/');
   } catch (err) {
-    errorMsg.value = err.message;
+    const detail = buildRegisterErrorMessage(err);
+    errorMsg.value = detail;
+    toast.add({ severity: 'error', summary: 'Échec de l\'inscription', detail, life: 4000 });
   } finally {
     pending.value = false;
   }

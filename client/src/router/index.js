@@ -11,7 +11,7 @@ const routes = [
     path: '/checkout',
     name: 'checkout',
     component: () => import('../views/CheckoutView.vue'),
-    meta: { requiresAuth: true, roles: ['user', 'admin'] },
+    meta: { requiresAuth: true, roles: ['user', 'seller', 'admin'] },
   },
   {
     path: '/commandes/:id',

@@ -19,6 +19,14 @@ const password = ref('');
 const errorMsg = ref('');
 const pending = ref(false);
 
+function buildAuthErrorMessage(err) {
+  if (err?.status === 401) return 'Email ou mot de passe invalide.';
+  if (Array.isArray(err?.details) && err.details.length > 0) {
+    return err.details.map((d) => d.message).join(' ');
+  }
+  return err?.message || 'Impossible de se connecter pour le moment.';
+}
+
 async function submit() {
   errorMsg.value = '';
   pending.value = true;
@@ -27,7 +35,9 @@ async function submit() {
     toast.add({ severity: 'success', summary: 'Connecté', life: 2000 });
     router.replace(route.query.redirect || '/');
   } catch (err) {
-    errorMsg.value = err.message;
+    const detail = buildAuthErrorMessage(err);
+    errorMsg.value = detail;
+    toast.add({ severity: 'error', summary: 'Échec de connexion', detail, life: 3500 });
   } finally {
     pending.value = false;
   }

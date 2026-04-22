@@ -17,7 +17,7 @@ router.post('/quote', requireAuth, async (req, res, next) => {
 });
 
 // Création de commande
-router.post('/', requireRole('user', 'admin'), async (req, res, next) => {
+router.post('/', requireRole('user', 'seller', 'admin'), async (req, res, next) => {
   try {
     const body = createCommandeSchema.parse(req.body);
     const commande = await createCommande(req.session, body);
@@ -72,7 +72,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
     if (user.role === 'user' && c.client_id !== user.id) {
       throw new HttpError(403, 'forbidden', "Cette commande n'est pas la vôtre.");
     }
-    if (user.role === 'seller') {
+    if (user.role === 'seller' && c.client_id !== user.id) {
       const { rowCount } = await query(
         `SELECT 1 FROM ligne_commande lc
          JOIN produit p ON p.id = lc.produit_id
