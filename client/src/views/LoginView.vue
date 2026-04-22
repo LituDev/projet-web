@@ -19,10 +19,25 @@ const password = ref('');
 const errorMsg = ref('');
 const pending = ref(false);
 
+function formatValidationDetails(details, labels = {}) {
+  if (!details || typeof details !== 'object') return '';
+  const chunks = [];
+  for (const [field, messages] of Object.entries(details)) {
+    if (!Array.isArray(messages) || messages.length === 0) continue;
+    const label = labels[field] ?? field;
+    chunks.push(`${label}: ${messages[0]}`);
+  }
+  return chunks.join(' ');
+}
+
 function buildAuthErrorMessage(err) {
   if (err?.status === 401) return 'Email ou mot de passe invalide.';
-  if (Array.isArray(err?.details) && err.details.length > 0) {
-    return err.details.map((d) => d.message).join(' ');
+  if (err?.code === 'validation_error') {
+    const message = formatValidationDetails(err.details, {
+      email: 'Email',
+      password: 'Mot de passe',
+    });
+    if (message) return message;
   }
   return err?.message || 'Impossible de se connecter pour le moment.';
 }

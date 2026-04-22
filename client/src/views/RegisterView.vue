@@ -30,10 +30,30 @@ const roleOptions = [
   { label: 'Je suis producteur', value: 'seller' },
 ];
 
+function formatValidationDetails(details, labels = {}) {
+  if (!details || typeof details !== 'object') return '';
+  const chunks = [];
+  for (const [field, messages] of Object.entries(details)) {
+    if (!Array.isArray(messages) || messages.length === 0) continue;
+    const label = labels[field] ?? field;
+    chunks.push(`${label}: ${messages[0]}`);
+  }
+  return chunks.join(' ');
+}
+
 function buildRegisterErrorMessage(err) {
   if (err?.status === 409) return 'Un compte existe déjà avec cet email.';
-  if (Array.isArray(err?.details) && err.details.length > 0) {
-    return err.details.map((d) => d.message).join(' ');
+  if (err?.code === 'validation_error') {
+    const message = formatValidationDetails(err.details, {
+      email: 'Email',
+      password: 'Mot de passe',
+      nom: 'Nom',
+      prenom: 'Prénom',
+      tel: 'Téléphone',
+      adresse: 'Adresse',
+      role: 'Rôle',
+    });
+    if (message) return message;
   }
   return err?.message || "Impossible de créer le compte pour le moment.";
 }
