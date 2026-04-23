@@ -14,8 +14,10 @@ import Tag from 'primevue/tag';
 import { useToast } from 'primevue/usetoast';
 import { api } from '../services/api.js';
 import { usePanierStore } from '../stores/panier.js';
+import { useSessionStore } from '../stores/session.js';
 
 const panier = usePanierStore();
+const session = useSessionStore();
 const router = useRouter();
 const toast = useToast();
 
@@ -24,9 +26,11 @@ const quote = ref(null);
 const mode = ref(null);
 const loadingQuote = ref(false);
 
-const lieux = ref([]);
 const pointsRelais = ref([]);
 const lieuId = ref(null);
+const lieuNom = ref('');
+const lieuAdresse = ref('');
+const loadingLieu = ref(false);
 const relaisId = ref(null);
 const adresse = ref('');
 const lat = ref(48.1173);
@@ -58,14 +62,67 @@ async function fetchQuote() {
   }
 }
 
+async function determinerLieuRetraitAuto() {
+  if (!panier.lignes.length) return;
+  loadingLieu.value = true;
+  try {
+    const firstProduitId = panier.lignes[0]?.produit_id;
+    if (!firstProduitId) return;
+
+    const produitRes = await api.get(`/produits/${firstProduitId}`);
+    const entrepriseId = produitRes.produit?.entreprise_id;
+    if (!entrepriseId) {
+      throw new Error('Impossible de déterminer le producteur du panier.');
+    }
+
+    const geoRes = await api.get('/geo/lieux');
+    const lieuxEntreprise = geoRes.data.filter((l) => l.entreprise_id === entrepriseId);
+    const choisi = lieuxEntreprise[0] ?? null;
+
+    if (!choisi) {
+      lieuId.value = null;
+      lieuNom.value = '';
+      lieuAdresse.value = '';
+      throw new Error('Aucun lieu de retrait disponible pour ce producteur.');
+    }
+
+    lieuId.value = choisi.id;
+    lieuNom.value = choisi.nom;
+    lieuAdresse.value = choisi.adresse;
+  } catch (e) {
+    errorMsg.value = e.message;
+  } finally {
+    loadingLieu.value = false;
+  }
+}
+
+async function preRemplirAdresseClient() {
+  if (adresse.value?.trim()) return;
+  if (session.user?.adresse) {
+    adresse.value = session.user.adresse;
+    return;
+  }
+  try {
+    const me = await api.get('/auth/me');
+    if (me.user?.adresse) {
+      adresse.value = me.user.adresse;
+      if (session.user) session.user.adresse = me.user.adresse;
+    }
+  } catch {
+    // best-effort prefill only
+  }
+}
+
 watch(mode, async (m) => {
-  if (m === 'pickup_store' && lieux.value.length === 0) {
-    const res = await api.get('/geo/lieux');
-    lieux.value = res.data;
+  if (m === 'pickup_store') {
+    await determinerLieuRetraitAuto();
   }
   if (m === 'pickup_relay' && pointsRelais.value.length === 0) {
     const res = await api.get('/geo/points-relais');
     pointsRelais.value = res.data;
+  }
+  if (m === 'home_delivery') {
+    await preRemplirAdresseClient();
   }
 });
 
@@ -104,7 +161,7 @@ async function passer() {
     } else if (statut === 'declined') {
       errorMsg.value = 'Paiement refusé par la banque (carte terminée par 0000).';
     } else if (statut === 'error') {
-      errorMsg.value = 'Erreur réseau lors du paiement (carte terminée par 0001). Réessayez.';
+      errorMsg.value = 'Erreur réseau simulée lors du paiement (carte terminée par 9999). Réessayez.';
     } else {
       errorMsg.value = `Statut du paiement : ${statut}`;
     }
@@ -163,8 +220,13 @@ onMounted(fetchQuote);
         </div>
 
         <div v-if="mode === 'pickup_store'" class="detail-mode">
-          <label for="lieu">Choisir un lieu de retrait</label>
-          <Select id="lieu" v-model="lieuId" :options="lieux" option-label="nom" option-value="id" placeholder="Sélectionner…" filter />
+          <label>Lieu de retrait</label>
+          <div v-if="loadingLieu" class="loading"><ProgressSpinner style="width: 1.4rem" /></div>
+          <div v-else-if="lieuId" class="auto-lieu">
+            <strong>{{ lieuNom }}</strong>
+            <small>{{ lieuAdresse }}</small>
+          </div>
+          <Message v-else severity="warn" :closable="false">Aucun lieu de retrait automatique trouvé.</Message>
         </div>
         <div v-else-if="mode === 'pickup_relay'" class="detail-mode">
           <label for="relais">Choisir un point relais</label>
@@ -181,7 +243,7 @@ onMounted(fetchQuote);
       <template #title>3. Paiement <small class="dev-tag">simulé — aucun débit réel</small></template>
       <template #content>
         <Message severity="info" :closable="false">
-          Démo : <code>…0000</code> → refusé, <code>…0001</code> → erreur réseau, sinon succès après 1,5 s.
+          Démo : <code>…0000</code> → refusé, <code>…9999</code> → erreur réseau simulée, sinon succès après 1,5 s.
         </Message>
         <div class="form">
           <div class="field">
@@ -219,6 +281,15 @@ onMounted(fetchQuote);
 .mode-head strong { flex: 1; }
 .motif { color: var(--p-red-600); }
 .detail-mode { margin-top: 1rem; display: flex; flex-direction: column; gap: .3rem; }
+.auto-lieu {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: .45rem;
+  padding: .55rem .65rem;
+}
+.auto-lieu small { color: var(--p-text-muted-color); }
 .form { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
 .field { display: flex; flex-direction: column; gap: .3rem; max-width: 20rem; }
 .dev-tag { color: var(--p-text-muted-color); font-weight: 400; font-size: .85rem; margin-left: .4rem; }

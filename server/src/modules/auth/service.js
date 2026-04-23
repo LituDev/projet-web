@@ -101,9 +101,10 @@ export async function unregisterSelf(userId) {
 
 export async function getCurrentUser(userId) {
   const result = await query(
-    `SELECT id, email, role, created_at, last_login_at
-     FROM utilisateur
-     WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT u.id, u.email, u.role, u.created_at, u.last_login_at, pc.adresse
+     FROM utilisateur u
+     LEFT JOIN profil_client pc ON pc.user_id = u.id
+     WHERE u.id = $1 AND u.deleted_at IS NULL`,
     [userId],
   );
   return result.rows[0] ?? null;

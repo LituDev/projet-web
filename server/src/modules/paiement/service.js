@@ -6,11 +6,11 @@ function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 // Règles de simulation
 // - numéro se terminant par 0000 → declined
-// - numéro se terminant par 0001 → timeout/error
+// - numéro se terminant par 9999 → timeout/error
 // - sinon → success
 function simulateCardOutcome(numero) {
   if (numero.endsWith('0000')) return 'declined';
-  if (numero.endsWith('0001')) return 'error';
+  if (numero.endsWith('9999')) return 'error';
   return 'success';
 }
 

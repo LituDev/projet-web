@@ -84,13 +84,13 @@ describe('paiement', () => {
     assert.equal(c.rows[0].statut, 'pending');
   });
 
-  test('card se terminant par 0001 → error', async () => {
+  test('card se terminant par 9999 → error', async () => {
     const { agent: a } = await registerClient();
     const { lieuId, produitId } = await setupScenario();
     const cmd = await placePickupOrder(a, produitId, lieuId);
     const res = await a.post('/api/paiements')
       .set('Idempotency-Key', uniqKey())
-      .send({ methode: 'card_fake', commande_id: cmd.id, numero_carte: '4111111111110001' });
+      .send({ methode: 'card_fake', commande_id: cmd.id, numero_carte: '4111111111119999' });
     assert.equal(res.status, 201);
     assert.equal(res.body.paiement.statut, 'error');
   });

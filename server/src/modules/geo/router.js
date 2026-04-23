@@ -33,7 +33,8 @@ router.get('/points-relais', async (req, res, next) => {
          FROM f_points_relais_proches(
            ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
            $3, $4
-         )`,
+         )
+         ORDER BY distance_m ASC, id ASC`,
         [lat, lon, rayon_m, limite],
       );
       return res.json({ data: rows });
