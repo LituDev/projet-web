@@ -7,6 +7,7 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Paginator from 'primevue/paginator';
+import ToggleButton from 'primevue/togglebutton';
 import { useToast } from 'primevue/usetoast';
 import { api } from '../services/api.js';
 import { produitImageUrl } from '../services/images.js';
@@ -27,12 +28,12 @@ async function toggleFavori(p) {
     return;
   }
   try {
-    const etait = favoris.has(p.entreprise_id);
-    await favoris.toggle(p.entreprise_id);
+    const etait = favoris.has(p.id);
+    await favoris.toggle(p.id);
     toast.add({
       severity: 'success',
       summary: etait ? 'Retiré des favoris' : 'Ajouté aux favoris',
-      detail: p.entreprise_nom,
+      detail: p.nom,
       life: 1500,
     });
   } catch (e) {
@@ -40,7 +41,7 @@ async function toggleFavori(p) {
   }
 }
 
-const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc' });
+const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc', favoris_only: false });
 const filtreEntrepriseId = ref('');
 const filtreEntrepriseNom = ref('');
 const produits = ref([]);
@@ -71,6 +72,8 @@ const tris = [
   { label: 'Prix décroissant', value: 'prix_desc' },
   { label: 'Stock disponible', value: 'stock_desc' },
   { label: 'Bio en premier', value: 'bio_first' },
+  { label: 'Livraison d\'abord', value: 'livraison_first' },
+  { label: 'Retrait sur place d\'abord', value: 'retrait_first' },
 ];
 
 async function charger() {
@@ -82,6 +85,7 @@ async function charger() {
     if (filtres.nature) params.set('nature', filtres.nature);
     if (filtres.bio !== null) params.set('bio', String(filtres.bio));
     if (filtres.tri) params.set('tri', filtres.tri);
+    if (filtres.favoris_only && session.user) params.set('favoris_only', 'true');
     params.set('limit', String(limit.value));
     params.set('offset', String(offset.value));
     const res = await api.get(`/produits?${params}`);
@@ -177,6 +181,14 @@ onMounted(() => {
       outlined
       @click="clearEntrepriseFilter"
     />
+    <ToggleButton
+      v-if="session.user && session.user.role !== 'seller'"
+      v-model="filtres.favoris_only"
+      on-label="Favoris"
+      off-label="Favoris"
+      on-icon="pi pi-heart-fill"
+      off-icon="pi pi-heart"
+      :severity="filtres.favoris_only ? 'danger' : 'secondary'" />
   </div>
 
   <DataView :value="produits" :loading="loading" layout="grid">
@@ -193,11 +205,15 @@ onMounted(() => {
             <h3><RouterLink :to="`/produits/${p.id}`">{{ p.nom }}</RouterLink></h3>
             <div class="head-actions">
               <Tag v-if="p.bio" severity="success" value="Bio" icon="pi pi-leaf" />
+              <Tag
+                :severity="p.shippable ? 'info' : 'secondary'"
+                :icon="p.shippable ? 'pi pi-truck' : 'pi pi-shop'"
+                :value="p.shippable ? 'Livraison' : 'Retrait sur place'" />
               <Button
-                :icon="favoris.has(p.entreprise_id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
-                :severity="favoris.has(p.entreprise_id) ? 'danger' : 'secondary'"
+                :icon="favoris.has(p.id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
+                :severity="favoris.has(p.id) ? 'danger' : 'secondary'"
                 text rounded
-                :aria-label="favoris.has(p.entreprise_id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+                :aria-label="favoris.has(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                 @click="toggleFavori(p)" />
             </div>
           </header>
@@ -268,8 +284,8 @@ onMounted(() => {
   transition: transform .3s ease;
 }
 .thumb-link:hover .thumb { transform: scale(1.04); }
-.card header { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
-.head-actions { display: flex; align-items: center; gap: .25rem; }
+.card header { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; flex-wrap: wrap; }
+.head-actions { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; justify-content: flex-end; }
 .card h3 { margin: 0; font-size: 1.05rem; }
 .card h3 a { color: inherit; text-decoration: none; }
 .card h3 a:hover { color: var(--p-primary-color); }

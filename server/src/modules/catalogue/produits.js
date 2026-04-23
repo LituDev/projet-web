@@ -48,7 +48,7 @@ router.get('/mine', requireRole('seller', 'admin'), async (req, res, next) => {
 // Liste publique — via la vue v_produits_disponibles (filtre saison+visible+stock)
 router.get('/', async (req, res, next) => {
   try {
-    const { q, entreprise_id, nature, bio, tri, limit, offset } = produitListQuerySchema.parse(req.query);
+  const { q, entreprise_id, nature, bio, tri, limit, offset, favoris_only } = produitListQuerySchema.parse(req.query);
     const clauses = [];
     const params = [];
     const ORDER_BY = {
@@ -57,6 +57,8 @@ router.get('/', async (req, res, next) => {
       prix_desc: 'prix_cents DESC, nom ASC',
       stock_desc: 'stock DESC, nom ASC',
       bio_first: 'bio DESC, nom ASC',
+      livraison_first: 'shippable DESC, nom ASC',
+      retrait_first: 'shippable ASC, nom ASC',
     };
     const orderBy = ORDER_BY[tri] ?? ORDER_BY.nom_asc;
 
@@ -76,6 +78,10 @@ router.get('/', async (req, res, next) => {
     if (nature) { params.push(nature); clauses.push(`nature = $${params.length}`); }
     if (bio === 'true') clauses.push('bio = TRUE');
     if (bio === 'false') clauses.push('bio = FALSE');
+    if (favoris_only === 'true' && req.session?.user?.id) {
+      params.push(req.session.user.id);
+      clauses.push(`id IN (SELECT produit_id FROM favori WHERE client_id = $${params.length})`);
+    }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
 
     params.push(limit, offset);

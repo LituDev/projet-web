@@ -1,21 +1,23 @@
 <script setup>
-import { computed, onMounted } from 'vue';
-import { RouterLink, RouterView, useRouter } from 'vue-router';
-import Menubar from 'primevue/menubar';
-import Button from 'primevue/button';
-import Toast from 'primevue/toast';
-import ConfirmDialog from 'primevue/confirmdialog';
-import { useSessionStore } from './stores/session.js';
-import { usePanierStore } from './stores/panier.js';
+import { computed, onMounted } from "vue";
+import { RouterLink, RouterView, useRouter } from "vue-router";
+import Menubar from "primevue/menubar";
+import Button from "primevue/button";
+import Toast from "primevue/toast";
+import ConfirmDialog from "primevue/confirmdialog";
+import { useSessionStore } from "./stores/session.js";
+import { usePanierStore } from "./stores/panier.js";
 
 const session = useSessionStore();
 const panier = usePanierStore();
 const router = useRouter();
 
-const canUsePanier = computed(() => !session.user || session.user.role !== 'seller');
+const canUsePanier = computed(
+  () => !session.user || session.user.role !== "seller",
+);
 const accountLabel = computed(() => {
   const prenom = session.user?.prenom?.trim();
-  return prenom || 'Mon compte';
+  return prenom || "Mon compte";
 });
 
 onMounted(async () => {
@@ -24,25 +26,33 @@ onMounted(async () => {
 
 const items = computed(() => {
   const base = [
-    { label: 'Accueil', icon: 'pi pi-home', route: '/' },
-    { label: 'Catalogue', icon: 'pi pi-shopping-bag', route: '/catalogue' },
-    { label: 'Carte', icon: 'pi pi-map', route: '/carte' },
+    { label: "Accueil", icon: "pi pi-home", route: "/" },
+    { label: "Catalogue", icon: "pi pi-shopping-bag", route: "/catalogue" },
+    { label: "Carte", icon: "pi pi-map", route: "/carte" },
   ];
   if (session.isClient || session.isAdmin) {
-    base.push({ label: 'Mes commandes', icon: 'pi pi-list', route: '/app/historique' });
+    base.push({
+      label: "Mon espace",
+      icon: "pi pi-list",
+      route: "/app/historique",
+    });
   }
   if (session.isSeller || session.isAdmin) {
-    base.push({ label: 'Espace producteur', icon: 'pi pi-wrench', route: '/seller/commandes' });
+    base.push({
+      label: "Espace producteur",
+      icon: "pi pi-wrench",
+      route: "/seller/commandes",
+    });
   }
   if (session.isAdmin) {
-    base.push({ label: 'Admin', icon: 'pi pi-cog', route: '/admin/dashboard' });
+    base.push({ label: "Admin", icon: "pi pi-cog", route: "/admin/dashboard" });
   }
   return base;
 });
 
 async function logout() {
   await session.logout();
-  router.push('/');
+  router.push("/");
 }
 </script>
 
@@ -52,13 +62,20 @@ async function logout() {
 
   <Menubar :model="items">
     <template #start>
-      <RouterLink to="/" class="brand">
-        Gumes Marketplace
-      </RouterLink>
+      <RouterLink to="/" class="brand"> Gumes Marketplace </RouterLink>
     </template>
     <template #item="{ item, props }">
-      <RouterLink v-if="item.route" :to="item.route" custom v-slot="{ navigate, isActive }">
-        <a :class="['p-menubar-item-link', { 'is-active': isActive }]" v-bind="props.action" @click="navigate">
+      <RouterLink
+        v-if="item.route"
+        :to="item.route"
+        custom
+        v-slot="{ navigate, isActive }"
+      >
+        <a
+          :class="['p-menubar-item-link', { 'is-active': isActive }]"
+          v-bind="props.action"
+          @click="navigate"
+        >
           <span :class="item.icon" />
           <span class="p-menubar-item-label">{{ item.label }}</span>
         </a>
@@ -66,18 +83,40 @@ async function logout() {
     </template>
     <template #end>
       <div class="nav-end">
-        <RouterLink v-if="canUsePanier" to="/panier" class="panier-link" aria-label="Voir le panier">
-          <Button icon="pi pi-shopping-cart" text :badge="panier.totalArticles ? String(panier.totalArticles) : undefined" badge-severity="contrast" />
+        <RouterLink
+          v-if="canUsePanier"
+          to="/panier"
+          class="panier-link"
+          aria-label="Voir le panier"
+        >
+          <Button
+            icon="pi pi-shopping-cart"
+            text
+            :badge="
+              panier.totalArticles ? String(panier.totalArticles) : undefined
+            "
+            badge-severity="contrast"
+          />
         </RouterLink>
         <template v-if="session.user">
           <RouterLink to="/app/compte">
             <Button :label="accountLabel" icon="pi pi-user" text />
           </RouterLink>
-          <Button label="Déconnexion" icon="pi pi-sign-out" severity="secondary" text @click="logout" />
+          <Button
+            label="Déconnexion"
+            icon="pi pi-sign-out"
+            severity="secondary"
+            text
+            @click="logout"
+          />
         </template>
         <template v-else>
-          <RouterLink to="/connexion"><Button label="Connexion" icon="pi pi-sign-in" text /></RouterLink>
-          <RouterLink to="/inscription"><Button label="Créer un compte" icon="pi pi-user-plus" /></RouterLink>
+          <RouterLink to="/connexion"
+            ><Button label="Connexion" icon="pi pi-sign-in" text
+          /></RouterLink>
+          <RouterLink to="/inscription"
+            ><Button label="Créer un compte" icon="pi pi-user-plus"
+          /></RouterLink>
         </template>
       </div>
     </template>

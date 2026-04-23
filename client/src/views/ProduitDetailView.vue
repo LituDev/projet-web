@@ -73,8 +73,8 @@ async function toggleFavori() {
     return;
   }
   try {
-    const etait = favoris.has(produit.value.entreprise_id);
-    await favoris.toggle(produit.value.entreprise_id);
+    const etait = favoris.has(produit.value.id);
+    await favoris.toggle(produit.value.id);
     toast.add({
       severity: 'success',
       summary: etait ? 'Retiré des favoris' : 'Ajouté aux favoris',
@@ -146,9 +146,9 @@ onMounted(charger);
           <span v-else>Encore {{ stockRestant }} disponible(s)</span>
         </small>
         <Button
-          :label="favoris.has(produit.entreprise_id) ? 'Retirer le producteur des favoris' : 'Ajouter le producteur aux favoris'"
-          :icon="favoris.has(produit.entreprise_id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
-          :severity="favoris.has(produit.entreprise_id) ? 'danger' : 'secondary'"
+          :label="favoris.has(produit.id) ? 'Retirer ce produit des favoris' : 'Ajouter ce produit aux favoris'"
+          :icon="favoris.has(produit.id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
+          :severity="favoris.has(produit.id) ? 'danger' : 'secondary'"
           outlined
           @click="toggleFavori" />
       </template>

@@ -89,7 +89,29 @@ router.get('/:id', requireAuth, async (req, res, next) => {
        WHERE lc.commande_id = $1`,
       [c.id],
     );
-    res.json({ commande: { ...c, lignes: lignes.rows } });
+
+    let livraison = null;
+    if (c.mode_livraison === 'home_delivery') {
+      const destRes = await query(
+        `SELECT lat, lon, adresse FROM commande_home_delivery WHERE commande_id = $1`,
+        [c.id],
+      );
+      const origRes = await query(
+        `SELECT ldv.lat, ldv.lon, ldv.nom
+         FROM ligne_commande lc
+         JOIN produit p ON p.id = lc.produit_id
+         JOIN lieu_de_vente ldv ON ldv.entreprise_id = p.entreprise_id
+         WHERE lc.commande_id = $1 AND ldv.actif = TRUE
+         ORDER BY ldv.nom
+         LIMIT 1`,
+        [c.id],
+      );
+      if (destRes.rows[0] && origRes.rows[0]) {
+        livraison = { origine: origRes.rows[0], destination: destRes.rows[0] };
+      }
+    }
+
+    res.json({ commande: { ...c, lignes: lignes.rows, livraison } });
   } catch (err) { next(err); }
 });
 
