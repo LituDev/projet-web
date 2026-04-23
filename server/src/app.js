@@ -16,6 +16,7 @@ import imagesRouter from './modules/catalogue/images.js';
 import commandesRouter from './modules/commandes/router.js';
 import paiementRouter from './modules/paiement/router.js';
 import geoRouter from './modules/geo/router.js';
+import avisRouter from './modules/avis/router.js';
 import favorisRouter from './modules/favoris/router.js';
 import listeCoursesRouter from './modules/liste-courses/router.js';
 import alertesRouter from './modules/alertes/router.js';
@@ -73,6 +74,7 @@ export function createApp() {
   app.use('/api/commandes', commandesRouter);
   app.use('/api/paiements', paiementRouter);
   app.use('/api/geo', geoRouter);
+  app.use('/api/avis', avisRouter);
   app.use('/api/favoris', favorisRouter);
   app.use('/api/liste-courses', listeCoursesRouter);
   app.use('/api/alertes', alertesRouter);

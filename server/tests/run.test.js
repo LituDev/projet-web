@@ -28,6 +28,7 @@ await import('./integration/produits.test.js');
 await import('./integration/commandes.test.js');
 await import('./integration/paiement.test.js');
 await import('./integration/geo.test.js');
+await import('./integration/avis.test.js');
 await import('./integration/favoris.test.js');
 await import('./integration/liste-courses.test.js');
 await import('./integration/alertes.test.js');

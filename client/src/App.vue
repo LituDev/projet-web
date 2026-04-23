@@ -19,6 +19,10 @@ const accountLabel = computed(() => {
   const prenom = session.user?.prenom?.trim();
   return prenom || "Mon compte";
 });
+const accountRoute = computed(() => {
+  if (session.user?.role === "seller") return "/seller/compte";
+  return "/app/compte";
+});
 
 onMounted(async () => {
   await session.fetchMe();
@@ -99,7 +103,7 @@ async function logout() {
           />
         </RouterLink>
         <template v-if="session.user">
-          <RouterLink to="/app/compte">
+          <RouterLink :to="accountRoute">
             <Button :label="accountLabel" icon="pi pi-user" text />
           </RouterLink>
           <Button
