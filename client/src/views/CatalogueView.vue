@@ -220,7 +220,7 @@ onMounted(() => {
           <p class="desc">{{ p.description }}</p>
           <p class="meta">
             <i class="pi pi-user" /> {{ p.producteur_nom }}<br>
-            <i class="pi pi-shop" /> {{ p.entreprise_nom }}
+            <i class="pi pi-shop" /> <RouterLink :to="`/entreprises/${p.entreprise_id}`">{{ p.entreprise_nom }}</RouterLink>
           </p>
           <p class="stock" :class="{ low: p.stock > 0 && p.stock < 5, out: p.stock === 0 }">
             <i class="pi pi-box" />
