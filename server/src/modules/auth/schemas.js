@@ -9,7 +9,7 @@ const tel = z.string().regex(/^\+?[0-9 .-]{10,20}$/, 'Numéro de téléphone inv
 
 export const registerClientSchema = z.object({
   role: z.literal('user'),
-  email: z.string().email('Email invalide.'),
+  email: z.string().email('Email invalide.').transform((s) => s.toLowerCase()),
   password,
   nom: z.string().min(1).max(80),
   prenom: z.string().min(1).max(80),
@@ -19,7 +19,7 @@ export const registerClientSchema = z.object({
 
 export const registerProducteurSchema = z.object({
   role: z.literal('seller'),
-  email: z.string().email('Email invalide.'),
+  email: z.string().email('Email invalide.').transform((s) => s.toLowerCase()),
   password,
   nom: z.string().min(1).max(80),
   prenom: z.string().min(1).max(80),
@@ -32,7 +32,7 @@ export const registerSchema = z.discriminatedUnion('role', [
 ]);
 
 export const loginSchema = z.object({
-  email: z.string().email('Email invalide.'),
+  email: z.string().email('Email invalide.').transform((s) => s.toLowerCase()),
   password: z.string().min(1, 'Mot de passe requis.'),
 });
 
@@ -50,7 +50,7 @@ export const updateProfileProducteurSchema = z.object({
 });
 
 export const requestResetSchema = z.object({
-  email: z.string().email('Email invalide.'),
+  email: z.string().email('Email invalide.').transform((s) => s.toLowerCase()),
 });
 
 export const confirmResetSchema = z.object({

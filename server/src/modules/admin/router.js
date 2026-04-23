@@ -41,7 +41,7 @@ router.delete('/users/:id', async (req, res, next) => {
     // Soft delete + anonymisation email (RGPD)
     const { rows } = await query(
       `UPDATE utilisateur
-       SET deleted_at = NOW(), email = ('deleted-' || id::text || '@anon')::citext
+       SET deleted_at = NOW(), email = 'deleted-' || id::text || '@anon'
        WHERE id = $1 AND deleted_at IS NULL
        RETURNING id`,
       [req.params.id],

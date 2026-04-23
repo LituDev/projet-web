@@ -35,10 +35,7 @@ router.get('/points-relais', async (req, res, next) => {
       const { lat, lon, rayon_m, limite } = proximiteQuerySchema.parse(req.query);
       const { rows } = await query(
         `SELECT id, nom, adresse, distance_m
-         FROM f_points_relais_proches(
-           ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-           $3, $4
-         )
+         FROM f_points_relais_proches($1, $2, $3, $4)
          ORDER BY distance_m ASC, id ASC`,
         [lat, lon, rayon_m, limite],
       );

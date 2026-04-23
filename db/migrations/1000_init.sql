@@ -2,7 +2,9 @@
 -- gumes marketplace — migration initiale
 -- Construit le schéma métier décrit dans docs/DL1-05-06-mcd-schema-logique.md
 -- Compatible node-pg-migrate (markers `-- Up Migration` / `-- Down Migration`).
--- Les extensions postgis, pgcrypto, citext sont supposées actives (voir db/init/01-extensions.sql).
+-- Aucune extension PostgreSQL n'est requise : gen_random_uuid() fait partie du
+-- core PostgreSQL depuis la 13, et les emails sont stockés en minuscules (contrainte
+-- CHECK) pour obtenir un équivalent de citext sans extension.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Up Migration
@@ -13,7 +15,7 @@
 
 CREATE TABLE utilisateur (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email          CITEXT      NOT NULL UNIQUE,
+  email          TEXT        NOT NULL UNIQUE CHECK (email = LOWER(email)),
   password_hash  TEXT        NOT NULL,
   role           TEXT        NOT NULL CHECK (role IN ('admin','seller','user')),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -34,10 +36,8 @@ CREATE TABLE adresse_geocodee (
   user_id      UUID PRIMARY KEY REFERENCES profil_client(user_id) ON DELETE CASCADE,
   lat          DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN -90  AND 90),
   lon          DOUBLE PRECISION NOT NULL CHECK (lon BETWEEN -180 AND 180),
-  geom         geography(Point, 4326) NOT NULL,
   geocoded_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX adresse_geocodee_geom_idx ON adresse_geocodee USING GIST (geom);
 
 CREATE TABLE profil_producteur (
   user_id  UUID PRIMARY KEY REFERENCES utilisateur(id) ON DELETE CASCADE,
@@ -67,11 +67,9 @@ CREATE TABLE lieu_de_vente (
   adresse        TEXT NOT NULL,
   lat            DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN -90  AND 90),
   lon            DOUBLE PRECISION NOT NULL CHECK (lon BETWEEN -180 AND 180),
-  geom           geography(Point, 4326) NOT NULL,
   actif          BOOLEAN NOT NULL DEFAULT TRUE,
   UNIQUE (entreprise_id, id)   -- permet une FK composite depuis produit_lieu_vente (RG-07)
 );
-CREATE INDEX lieu_de_vente_geom_idx       ON lieu_de_vente USING GIST (geom);
 CREATE INDEX lieu_de_vente_entreprise_idx ON lieu_de_vente (entreprise_id);
 
 CREATE TABLE horaire (
@@ -90,10 +88,8 @@ CREATE TABLE point_relais (
   adresse TEXT NOT NULL,
   lat     DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN -90 AND 90),
   lon     DOUBLE PRECISION NOT NULL CHECK (lon BETWEEN -180 AND 180),
-  geom    geography(Point, 4326) NOT NULL,
   actif   BOOLEAN NOT NULL DEFAULT TRUE
 );
-CREATE INDEX point_relais_geom_idx ON point_relais USING GIST (geom);
 
 CREATE TABLE horaire_point_relais (
   id             SERIAL PRIMARY KEY,
@@ -192,10 +188,8 @@ CREATE TABLE commande_home_delivery (
   commande_id  UUID PRIMARY KEY REFERENCES commande(id) ON DELETE CASCADE,
   adresse      TEXT NOT NULL,
   lat          DOUBLE PRECISION NOT NULL CHECK (lat BETWEEN -90 AND 90),
-  lon          DOUBLE PRECISION NOT NULL CHECK (lon BETWEEN -180 AND 180),
-  geom         geography(Point, 4326) NOT NULL
+  lon          DOUBLE PRECISION NOT NULL CHECK (lon BETWEEN -180 AND 180)
 );
-CREATE INDEX commande_home_delivery_geom_idx ON commande_home_delivery USING GIST (geom);
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- 5. Paiement (simulation)

@@ -148,8 +148,8 @@ export async function createCommande(session, body) {
       );
     } else {
       await client.query(
-        `INSERT INTO commande_home_delivery (commande_id, adresse, lat, lon, geom)
-         VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography)`,
+        `INSERT INTO commande_home_delivery (commande_id, adresse, lat, lon)
+         VALUES ($1, $2, $3, $4)`,
         [commandeId, body.adresse, body.lat, body.lon],
       );
     }

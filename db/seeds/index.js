@@ -143,9 +143,8 @@ async function main() {
       for (let j = 0; j < nbLieux; j++) {
         const { lat, lon } = jitter(pick(BRETAGNE), 8);
         const l = await client.query(
-          `INSERT INTO lieu_de_vente (entreprise_id, nom, adresse, lat, lon, geom)
-           VALUES ($1, $2, $3, $4, $5,
-             ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography)
+          `INSERT INTO lieu_de_vente (entreprise_id, nom, adresse, lat, lon)
+           VALUES ($1, $2, $3, $4, $5)
            RETURNING id`,
           [
             entrepriseId,
@@ -239,8 +238,8 @@ async function main() {
     for (let i = 0; i < 10; i++) {
       const { lat, lon } = jitter(pick(BRETAGNE), 6);
       const r = await client.query(
-        `INSERT INTO point_relais (nom, adresse, lat, lon, geom)
-         VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography)
+        `INSERT INTO point_relais (nom, adresse, lat, lon)
+         VALUES ($1, $2, $3, $4)
          RETURNING id`,
         [
           `Relais ${faker.company.name()}`,
@@ -283,8 +282,8 @@ async function main() {
 
       const { lat, lon } = jitter(pick(BRETAGNE), 8);
       await client.query(
-        `INSERT INTO adresse_geocodee (user_id, lat, lon, geom)
-         VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)`,
+        `INSERT INTO adresse_geocodee (user_id, lat, lon)
+         VALUES ($1, $2, $3)`,
         [userId, lat, lon],
       );
 
@@ -366,8 +365,8 @@ async function main() {
         );
       } else {
         await client.query(
-          `INSERT INTO commande_home_delivery (commande_id, adresse, lat, lon, geom)
-           VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography)`,
+          `INSERT INTO commande_home_delivery (commande_id, adresse, lat, lon)
+           VALUES ($1, $2, $3, $4)`,
           [commandeId, clt.adresse, clt.lat, clt.lon],
         );
       }

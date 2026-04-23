@@ -39,8 +39,8 @@ export async function registerUser(input) {
         const coords = await geocodeAddress(input.adresse);
         if (coords) {
           await client.query(
-            `INSERT INTO adresse_geocodee (user_id, lat, lon, geom)
-             VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)`,
+            `INSERT INTO adresse_geocodee (user_id, lat, lon)
+             VALUES ($1, $2, $3)`,
             [user.id, coords.lat, coords.lon],
           );
         } else {
@@ -89,7 +89,7 @@ export async function unregisterSelf(userId) {
   const { rows } = await query(
     `UPDATE utilisateur
      SET deleted_at = NOW(),
-         email = ('deleted-' || id::text || '@anon')::citext
+         email = 'deleted-' || id::text || '@anon'
      WHERE id = $1 AND deleted_at IS NULL
      RETURNING id`,
     [userId],
