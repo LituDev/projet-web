@@ -3,6 +3,7 @@ import { query, withTransaction } from '../../db/pool.js';
 import { HttpError } from '../../middlewares/error.js';
 import { requireRole } from '../../middlewares/auth.js';
 import { produitCreateSchema, produitListQuerySchema, produitUpdateSchema } from './schemas.js';
+import { uploadProduitImage, deleteProduitImage } from './images.js';
 
 const router = express.Router();
 
@@ -184,5 +185,8 @@ router.delete('/:id', requireRole('seller', 'admin'), async (req, res, next) => 
     res.status(204).end();
   } catch (err) { next(err); }
 });
+
+router.post('/:id/image', ...uploadProduitImage);
+router.delete('/:id/image', ...deleteProduitImage);
 
 export default router;

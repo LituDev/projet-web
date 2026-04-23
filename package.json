@@ -16,6 +16,7 @@
     "db:migrate": "npm --workspace server run db:migrate",
     "db:migrate:down": "npm --workspace server run db:migrate:down",
     "db:seed": "npm --workspace server run db:seed",
+    "images:import": "npm --workspace server run images:import",
     "db:reset": "docker compose down -v && docker compose up -d && sleep 3 && npm run db:migrate && npm run db:seed",
     "test": "npm --workspace server run test"
   },

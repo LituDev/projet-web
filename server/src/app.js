@@ -12,6 +12,7 @@ import authRouter from './modules/auth/router.js';
 import entreprisesRouter from './modules/catalogue/entreprises.js';
 import lieuxRouter from './modules/catalogue/lieux.js';
 import produitsRouter from './modules/catalogue/produits.js';
+import imagesRouter from './modules/catalogue/images.js';
 import commandesRouter from './modules/commandes/router.js';
 import paiementRouter from './modules/paiement/router.js';
 import geoRouter from './modules/geo/router.js';
@@ -68,6 +69,7 @@ export function createApp() {
   app.use('/api/entreprises', entreprisesRouter);
   app.use('/api/lieux-de-vente', lieuxRouter);
   app.use('/api/produits', produitsRouter);
+  app.use('/api/images', imagesRouter);
   app.use('/api/commandes', commandesRouter);
   app.use('/api/paiements', paiementRouter);
   app.use('/api/geo', geoRouter);

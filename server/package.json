@@ -10,6 +10,7 @@
     "db:migrate": "dotenv -e ../.env -- node-pg-migrate -m ../db/migrations --migrations-schema public up",
     "db:migrate:down": "dotenv -e ../.env -- node-pg-migrate -m ../db/migrations --migrations-schema public down",
     "db:seed": "node ../db/seeds/index.js",
+    "images:import": "node ../db/seed-images/import.js",
     "test": "dotenv -e ../.env.test -- node --test --test-concurrency=1 tests/run.test.js",
     "lint": "eslint src"
   },
@@ -24,10 +25,12 @@
     "express-rate-limit": "^8.3.2",
     "express-session": "^1.19.0",
     "helmet": "^8.1.0",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.5",
     "pg": "^8.20.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
+    "sharp": "^0.34.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

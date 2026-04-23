@@ -84,6 +84,12 @@ npm run db:migrate
 info "Seed des données de test…"
 npm run db:seed
 
+info "Téléchargement des images de démo…"
+./db/seed-images/download.sh
+
+info "Import des images vers le storage…"
+npm run images:import
+
 # ── Lancement serveur + client ───────────────────────────────────────────────
 bold ""
 bold "══════════════════════════════════════════════════════════════════════"
