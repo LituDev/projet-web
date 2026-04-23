@@ -52,6 +52,7 @@ const routes = [
     children: [
       { path: '', redirect: '/seller/commandes' },
       { path: 'commandes', name: 'seller-commandes', component: () => import('../views/seller/SellerCommandesView.vue') },
+      { path: 'entreprises', name: 'seller-entreprises', component: () => import('../views/seller/SellerEntreprisesView.vue') },
       { path: 'produits', name: 'seller-produits', component: () => import('../views/seller/SellerProduitsView.vue') },
     ],
   },

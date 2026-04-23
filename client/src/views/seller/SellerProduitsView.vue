@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref, reactive } from 'vue';
+import { RouterLink } from 'vue-router';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
@@ -150,10 +151,15 @@ onMounted(charger);
 <template>
   <header class="head">
     <h2>Mes produits</h2>
-    <Button label="Ajouter" icon="pi pi-plus" @click="ouvrirCreation" />
+    <Button label="Ajouter" icon="pi pi-plus" @click="ouvrirCreation" :disabled="mesEntreprises.length === 0" />
   </header>
 
   <Message v-if="err" severity="error" :closable="false">{{ err }}</Message>
+
+  <Message v-if="!loading && mesEntreprises.length === 0" severity="warn" :closable="false">
+    Vous devez d'abord créer une entreprise avant de pouvoir ajouter des produits.
+    <RouterLink to="/seller/entreprises">Créer une entreprise</RouterLink>
+  </Message>
 
   <DataTable :value="produits" :loading="loading" paginator :rows="15" striped-rows>
     <Column field="nom" header="Nom" :sortable="true" />
