@@ -17,3 +17,10 @@ export const itineraireSchema = z.object({
   depart: point,
   etapes: z.array(point).min(1).max(15),
 });
+
+export const routeQuerySchema = z.object({
+  from_lat: z.coerce.number().min(-90).max(90),
+  from_lon: z.coerce.number().min(-180).max(180),
+  to_lat: z.coerce.number().min(-90).max(90),
+  to_lon: z.coerce.number().min(-180).max(180),
+});

@@ -67,6 +67,8 @@ const tris = [
   { label: 'Prix décroissant', value: 'prix_desc' },
   { label: 'Stock disponible', value: 'stock_desc' },
   { label: 'Bio en premier', value: 'bio_first' },
+  { label: 'Livraison d\'abord', value: 'livraison_first' },
+  { label: 'Retrait sur place d\'abord', value: 'retrait_first' },
 ];
 
 async function charger() {
@@ -153,6 +155,10 @@ onMounted(charger);
             <h3><RouterLink :to="`/produits/${p.id}`">{{ p.nom }}</RouterLink></h3>
             <div class="head-actions">
               <Tag v-if="p.bio" severity="success" value="Bio" icon="pi pi-leaf" />
+              <Tag
+                :severity="p.shippable ? 'info' : 'secondary'"
+                :icon="p.shippable ? 'pi pi-truck' : 'pi pi-shop'"
+                :value="p.shippable ? 'Livraison' : 'Retrait sur place'" />
               <Button
                 :icon="favoris.has(p.entreprise_id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
                 :severity="favoris.has(p.entreprise_id) ? 'danger' : 'secondary'"
@@ -228,8 +234,8 @@ onMounted(charger);
   transition: transform .3s ease;
 }
 .thumb-link:hover .thumb { transform: scale(1.04); }
-.card header { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
-.head-actions { display: flex; align-items: center; gap: .25rem; }
+.card header { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; flex-wrap: wrap; }
+.head-actions { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; justify-content: flex-end; }
 .card h3 { margin: 0; font-size: 1.05rem; }
 .card h3 a { color: inherit; text-decoration: none; }
 .card h3 a:hover { color: var(--p-primary-color); }

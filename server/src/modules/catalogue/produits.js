@@ -57,6 +57,8 @@ router.get('/', async (req, res, next) => {
       prix_desc: 'prix_cents DESC, nom ASC',
       stock_desc: 'stock DESC, nom ASC',
       bio_first: 'bio DESC, nom ASC',
+      livraison_first: 'shippable DESC, nom ASC',
+      retrait_first: 'shippable ASC, nom ASC',
     };
     const orderBy = ORDER_BY[tri] ?? ORDER_BY.nom_asc;
 
