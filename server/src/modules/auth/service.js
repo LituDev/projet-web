@@ -61,9 +61,12 @@ export async function registerUser(input) {
 
 export async function authenticate(email, password) {
   const result = await query(
-    `SELECT id, email, password_hash, role
-     FROM utilisateur
-     WHERE email = $1 AND deleted_at IS NULL`,
+    `SELECT u.id, u.email, u.password_hash, u.role,
+            COALESCE(pc.prenom, pp.prenom) AS prenom
+     FROM utilisateur u
+     LEFT JOIN profil_client     pc ON pc.user_id = u.id
+     LEFT JOIN profil_producteur pp ON pp.user_id = u.id
+     WHERE u.email = $1 AND u.deleted_at IS NULL`,
     [email],
   );
   if (result.rowCount === 0) {
@@ -75,7 +78,7 @@ export async function authenticate(email, password) {
     throw new HttpError(401, 'invalid_credentials', 'Email ou mot de passe incorrect.');
   }
   await query('UPDATE utilisateur SET last_login_at = NOW() WHERE id = $1', [row.id]);
-  return { id: row.id, email: row.email, role: row.role };
+  return { id: row.id, email: row.email, role: row.role, prenom: row.prenom };
 }
 
 export async function unregisterSelf(userId) {
@@ -101,9 +104,11 @@ export async function unregisterSelf(userId) {
 
 export async function getCurrentUser(userId) {
   const result = await query(
-    `SELECT u.id, u.email, u.role, u.created_at, u.last_login_at, pc.adresse
+    `SELECT u.id, u.email, u.role, u.created_at, u.last_login_at,
+            COALESCE(pc.prenom, pp.prenom) AS prenom
      FROM utilisateur u
-     LEFT JOIN profil_client pc ON pc.user_id = u.id
+     LEFT JOIN profil_client     pc ON pc.user_id = u.id
+     LEFT JOIN profil_producteur pp ON pp.user_id = u.id
      WHERE u.id = $1 AND u.deleted_at IS NULL`,
     [userId],
   );
