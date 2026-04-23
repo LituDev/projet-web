@@ -13,6 +13,10 @@ const panier = usePanierStore();
 const router = useRouter();
 
 const canUsePanier = computed(() => !session.user || session.user.role !== 'seller');
+const accountLabel = computed(() => {
+  const prenom = session.user?.prenom?.trim();
+  return prenom || 'Mon compte';
+});
 
 onMounted(async () => {
   await session.fetchMe();
@@ -67,7 +71,7 @@ async function logout() {
         </RouterLink>
         <template v-if="session.user">
           <RouterLink to="/app/compte">
-            <Button :label="session.user.prenom ?? session.user.email" icon="pi pi-user" text />
+            <Button :label="accountLabel" icon="pi pi-user" text />
           </RouterLink>
           <Button label="Déconnexion" icon="pi pi-sign-out" severity="secondary" text @click="logout" />
         </template>
