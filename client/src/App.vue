@@ -13,6 +13,10 @@ const panier = usePanierStore();
 const router = useRouter();
 
 const canUsePanier = computed(() => !session.user || session.user.role !== 'seller');
+const accountLabel = computed(() => {
+  const prenom = session.user?.prenom?.trim();
+  return prenom || 'Mon compte';
+});
 
 onMounted(async () => {
   await session.fetchMe();
@@ -66,7 +70,9 @@ async function logout() {
           <Button icon="pi pi-shopping-cart" text :badge="panier.totalArticles ? String(panier.totalArticles) : undefined" badge-severity="contrast" />
         </RouterLink>
         <template v-if="session.user">
-          <span class="role-pill">{{ session.user.email }} · {{ session.user.role }}</span>
+          <RouterLink to="/app/compte">
+            <Button :label="accountLabel" icon="pi pi-user" text />
+          </RouterLink>
           <Button label="Déconnexion" icon="pi pi-sign-out" severity="secondary" text @click="logout" />
         </template>
         <template v-else>
@@ -97,13 +103,6 @@ async function logout() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-.role-pill {
-  font-size: 0.85rem;
-  color: var(--p-text-muted-color);
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  background: var(--p-surface-100);
 }
 .p-menubar-item-link.is-active {
   color: var(--p-primary-color);

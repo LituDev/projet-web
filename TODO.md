@@ -97,43 +97,37 @@ Deadlines : DL1 mer. 22 avril 12h · DL2 ven. 24 avril 13h · DL3 démo ven. 24 
 - [ ] **CSRF tokens** sur toutes les mutations (`csurf` ou double-submit cookie) — dépendance archivée, à remplacer par double-submit custom
 - [x] **Rate-limit** sur `/api/auth/login` et `/api/auth/register` (`express-rate-limit`, 5/min/IP) → `auth/router.js`
 - [x] **CORS** restreint à l'origine du front → `server/src/app.js` (origine `VITE_API_BASE_URL`)
-- [ ] Requêtes SQL **uniquement paramétrées** (jamais de concat) — lint rule si possible
-- [ ] EJS : pas de `<%- %>` sur données user (échappement par défaut `<%= %>`)
-- [ ] Validation taille body (`express.json({ limit: '200kb' })`) + rejet types MIME inattendus
+- [x] Requêtes SQL **uniquement paramétrées** (jamais de concat) → toutes les requêtes `server/src/modules/**` utilisent `$1, $2…`
+- [ ] EJS : pas de `<%- %>` sur données user (échappement par défaut `<%= %>`) — *non applicable, SPA sans EJS*
+- [x] Validation taille body (`express.json({ limit: '200kb' })`) → `server/src/app.js` (MIME whitelist upload à faire avec multer si besoin)
 - [ ] Upload : `multer` + whitelist MIME (jpeg/png/webp) + taille max 2 Mo + renommage fichier (pas de nom client)
-- [ ] Audit log : table `audit_log` (user_id, action, target, timestamp) pour toutes les actions admin
+- [x] Audit log : table `audit_log` + écritures sur actions admin → `db/migrations/1000_init.sql` (table) + `server/src/modules/admin/router.js` + `v_audit_recent` + `AdminAuditView.vue`
 
 ### 4c. Livraison / modes d'expédition
 
-- [ ] Enum `delivery_mode` : `pickup_store` (lieu de vente) · `pickup_relay` (point relais) · `home_delivery` (livraison à domicile)
-- [ ] Table `points_relais` (id, nom, adresse, lat/lon, horaires) — seed avec 5-10 points réalistes
-- [ ] Colonne `produits.shippable` (bool) : un producteur marque si le produit peut être expédié (exigence PDF "si l'expédition est possible")
-- [ ] Règle : `home_delivery` non disponible si **un seul** article du panier a `shippable = false`
-- [ ] Règle : `pickup_store` disponible uniquement si tous les articles proviennent du **même** lieu de vente (sinon proposer split commande)
-- [ ] Règle : `pickup_relay` disponible si tous les articles sont `shippable`
-- [ ] Grille tarifaire simple (seed en base, table `shipping_rates`) :
-  - `pickup_store` → 0 €
-  - `pickup_relay` → 2,50 € forfait
-  - `home_delivery` → 4,90 € si total < 50 €, sinon 0 € (franco de port)
-- [ ] Endpoint `POST /api/commandes/quote` : reçoit panier + mode, renvoie modes disponibles, frais de port, total TTC
-- [ ] Affichage côté client (checkout) : radio PrimeVue avec mode + prix + ETA indicatif ("sous 2-3 jours"), modes grisés si indisponibles avec raison
-- [ ] Workflow statut commande : `pending` → `accepted` | `refused` → `preparing` → `ready_for_pickup` | `shipped` → `delivered` | `cancelled`
-- [ ] Notification (toast + historique) à chaque changement de statut côté client
+- [x] Enum `delivery_mode` : `pickup_store` · `pickup_relay` · `home_delivery` → `commande.mode_livraison` (`db/migrations/1000_init.sql`)
+- [x] Table `point_relais` (+ `horaire_point_relais`) seedée avec 10 points en Bretagne → `db/migrations/1000_init.sql` + `db/seeds/index.js`
+- [x] Colonne `produit.shippable` (bool) → `db/migrations/1000_init.sql`
+- [x] Règle : `home_delivery` refusée si un article non shippable → `server/src/modules/commandes/service.js`
+- [x] Règle : `pickup_store` refusée si articles de lieux différents → `server/src/modules/commandes/service.js`
+- [x] Règle : `pickup_relay` nécessite tous les articles shippable → `server/src/modules/commandes/service.js`
+- [x] Table `shipping_rate` avec tarifs seedés (pickup_store=0, pickup_relay=2,50€, home_delivery=4,90€ / franco ≥ 50€) → migrations + service
+- [x] Endpoint `POST /api/commandes/quote` → `server/src/modules/commandes/router.js`
+- [ ] Affichage côté client (checkout) : radio PrimeVue avec mode + prix + ETA indicatif ("sous 2-3 jours"), modes grisés si indisponibles avec raison — *radio + prix OK, ETA à ajouter*
+- [x] Workflow statut commande : `pending` → `accepted` | `refused` → `preparing` → `ready_for_pickup` | `shipped` → `delivered` | `cancelled` → `db/migrations/1000_init.sql` + transitions dans `commandes/service.js`
+- [ ] Notification (toast + historique) à chaque changement de statut côté client — *toasts ponctuels OK, auto-refresh statut à faire*
 
 ### 4d. Paiement (simulé — pas de vrai PSP)
 
-- [ ] Table `paiements` (id, commande_id, montant, mode, status, created_at, fake_card_last4)
-- [ ] Enum `payment_method` : `card_fake` · `on_pickup` (payer sur place en `pickup_store`) · `on_delivery` (COD en `home_delivery`)
-- [ ] Écran checkout : composant `<FakeCardForm>` (PrimeVue `InputMask` pour `1234 5678 9012 3456`, `CVC`, `MM/YY`) — **purement UI**, aucune donnée carte réelle persistée, seulement les 4 derniers chiffres
-- [ ] Règles de simulation :
-  - Numéro se terminant par **`0000`** → paiement refusé (`declined`)
-  - Numéro se terminant par **`0001`** → erreur réseau simulée (timeout 5s puis `error`)
-  - Tout le reste → succès après 1,5s (spinner PrimeVue `ProgressSpinner`)
-- [ ] Endpoint `POST /api/paiements` : valide montant vs quote, simule délai, retourne `status`
-- [ ] Idempotence : header `Idempotency-Key` (UUID client) pour éviter double-paiement si retry
-- [ ] Transaction PG : création commande + paiement + décrément stock dans un `BEGIN … COMMIT` (rollback si paiement échoue)
+- [x] Table `paiement` (+ `paiement_carte` séparée pour last4) → `db/migrations/1000_init.sql`
+- [x] Enum `payment_method` : `card_fake` · `on_pickup` · `on_delivery` → colonne `paiement.methode`
+- [x] Écran checkout : `<InputMask>` pour numéro + CVC + MM/YY → `client/src/views/CheckoutView.vue`
+- [x] Règles de simulation (`0000` → declined, `0001` → error timeout, sinon success après délai) → `server/src/modules/paiement/service.js`
+- [x] Endpoint `POST /api/paiements` → `server/src/modules/paiement/router.js`
+- [x] Idempotence : header `Idempotency-Key` + dédup SQL → `server/src/modules/paiement/router.js`
+- [x] Transaction PG : `withTransaction()` autour insert paiement + carte → `server/src/modules/paiement/service.js`
 - [ ] Reçu : `GET /api/commandes/:id/recu.pdf` (génération via `pdfkit`) — bonus
-- [ ] Badge visuel "Paiement simulé — aucun débit réel" sur le formulaire (transparence démo)
+- [x] Badge visuel "Paiement simulé — aucun débit réel" → `CheckoutView.vue`
 - [ ] Remboursement admin : bouton `Rembourser` sur commande annulée (change `paiement.status = refunded`, écrit dans `audit_log`)
 
 ## 5. API REST (endpoints minimaux)
@@ -146,18 +140,18 @@ Deadlines : DL1 mer. 22 avril 12h · DL2 ven. 24 avril 13h · DL3 démo ven. 24 
 - [x] `POST /api/commandes/quote` · `POST /api/commandes` · `GET /api/commandes` · `PATCH /api/commandes/:id` → `server/src/modules/commandes/`
 - [x] `POST /api/paiements` (simulé, `Idempotency-Key`, règles carte 0000/0001) · `GET /api/paiements/:id` → `server/src/modules/paiement/`
 - [x] `GET /api/geo/points-relais` (liste + proximité KNN via `f_points_relais_proches`) → `server/src/modules/geo/`
-- [ ] `GET/POST/DELETE /api/favoris`
-- [ ] `CRUD /api/liste-courses`
-- [ ] `GET /api/historique`
+- [x] `GET/POST/DELETE /api/favoris` → `server/src/modules/favoris/router.js`
+- [x] `CRUD /api/liste-courses` (+ items) → `server/src/modules/liste-courses/router.js`
+- [x] `GET /api/historique` → exposé via `GET /api/commandes` filtré par rôle · vue `HistoriqueView.vue`
 - [x] `GET /api/geo/lieux` (via `v_lieux_ouverts_maintenant` si `?ouverts=1`) → `server/src/modules/geo/router.js`
 - [x] `POST /api/geo/itineraire` (nearest-neighbor + 2-opt serveur) → `server/src/modules/geo/service.js`
-- [ ] `POST /api/alertes` (dysfonctionnements)
+- [x] `POST /api/alertes` (+ GET admin · GET /mine · PATCH statut) → `server/src/modules/alertes/router.js`
 
 ## 6. Gestion des utilisateurs & permissions
 
-- [ ] Table `utilisateurs` (id, login, email, password_hash, role, created_at)
-- [ ] Enum `role` en base : `admin`, `seller`, `user` (+ `visitor` non persistant, pour les non-connectés)
-- [ ] Seed d'un **super administrateur** par défaut (`admin@gumes.local`)
+- [x] Table `utilisateur` (id, email, password_hash, role, created_at, last_login_at) → `db/migrations/1000_init.sql`
+- [x] Enum `role` CHECK : `admin` · `seller` · `user` (+ `visitor` non persistant) → idem
+- [x] Seed `admin@gumes.local` par défaut → `db/seeds/index.js`
 - [x] Middleware `requireAuth(req, res, next)` — vérifie session active → `server/src/middlewares/auth.js`
 - [x] Middleware `requireRole(...roles)` — 403 si `req.session.user.role` n'est pas dans la liste → `server/src/middlewares/auth.js`
 - [x] Helper Vue `useAuth()` (Pinia store `session`) : `isAdmin`, `isSeller`, `isUser` → `client/src/stores/session.js`
@@ -166,39 +160,39 @@ Deadlines : DL1 mer. 22 avril 12h · DL2 ven. 24 avril 13h · DL3 démo ven. 24 
 ### Modes / rôles
 
 #### Admin mode (`admin`)
-- [ ] Accès `/admin/*` protégé par `requireRole('admin')`
-- [ ] Dashboard : stats globales (users, commandes, CA, alertes ouvertes)
-- [ ] CRUD users (promouvoir/rétrograder `seller` ↔ `user`, désactiver un compte)
-- [ ] Modération produits (forcer visibilité = hidden)
-- [ ] Traiter / clôturer les alertes de dysfonctionnement
-- [ ] Voir les logs d'audit (qui a fait quoi, quand)
-- [ ] Thème interface : accent rouge/ambre (`--p-primary-color`)
+- [x] Accès `/admin/*` protégé → `client/src/router/index.js` + `requireRole('admin')` côté serveur
+- [x] Dashboard : stats globales → `AdminDashboardView.vue` + `GET /api/admin/stats`
+- [x] CRUD users (promouvoir/rétrograder, désactiver) → `server/src/modules/admin/router.js` + `AdminUsersView.vue`
+- [ ] Modération produits (forcer visibilité = hidden) — *colonne existe, UI admin dédiée à ajouter*
+- [x] Traiter / clôturer les alertes → `alertes/router.js` PATCH statut · vue admin
+- [x] Voir les logs d'audit → `GET /api/admin/audit` + `AdminAuditView.vue`
+- [x] Thème interface : accent rouge → classe CSS `role-admin` (`style.css` + `session.applyRoleTheme()`)
 
 #### Seller mode (`seller` — producteur)
-- [ ] Accès `/seller/*` protégé par `requireRole('seller', 'admin')`
-- [ ] Gérer son compte (modifier / se désinscrire)
-- [ ] CRUD entreprise(s) — **uniquement les siennes** (filtre `where owner_id = :me`)
-- [ ] CRUD lieux de vente (+ horaires) — **uniquement les siens**
-- [ ] CRUD produits — **uniquement les siens** ; visibilité (saison, stock, masqué)
-- [ ] Voir ses commandes entrantes ; accepter / refuser
-- [ ] NE PEUT PAS : voir les commandes d'autres producteurs, modifier un autre compte
-- [ ] Thème interface : accent vert (`--p-primary-color`)
+- [x] Accès `/seller/*` protégé → router + `requireRole('seller','admin')`
+- [ ] Gérer son compte (modifier / se désinscrire) — *désinscription OK, `PUT /api/users/me` à ajouter*
+- [x] CRUD entreprise(s) filtré par `owner_id` → `server/src/modules/catalogue/entreprises.js`
+- [x] CRUD lieux de vente + horaires → `server/src/modules/catalogue/lieux.js`
+- [x] CRUD produits (visibilité, saison, stock) → `server/src/modules/catalogue/produits.js`
+- [x] Voir ses commandes entrantes ; accepter / refuser → `commandes/router.js` filtré
+- [x] Isolation via `requireRole` + filtres owner_id → middleware `auth.js`
+- [x] Thème interface : accent vert → classe CSS `role-seller`
 
 #### User mode (`user` — client)
-- [ ] Accès `/app/*` protégé par `requireRole('user', 'admin')`
-- [ ] Gérer son compte (modifier / se désinscrire)
-- [ ] Parcourir catalogue, carte, fiches produits (lecture seule)
-- [ ] Passer une commande (choix mode de livraison)
-- [ ] Liste de courses + optimisation de parcours
-- [ ] Favoris vendeurs
-- [ ] Historique **de ses propres** commandes
-- [ ] Émettre une alerte de dysfonctionnement
-- [ ] NE PEUT PAS : voir les commandes d'autres clients, accéder à `/admin` ou `/seller`
-- [ ] Thème interface : accent bleu (`--p-primary-color`)
+- [x] Accès `/app/*` protégé → router + `requireRole('user','admin')`
+- [ ] Gérer son compte (modifier / se désinscrire) — *désinscription OK, `PUT /api/users/me` à ajouter*
+- [x] Parcourir catalogue, carte, fiches → `CatalogueView.vue`, `CarteView.vue`, `ProduitDetailView.vue`
+- [x] Passer une commande → `CheckoutView.vue`
+- [x] Liste de courses + optimisation → `ListeCoursesView.vue` + worker + `POST /api/geo/itineraire`
+- [x] Favoris vendeurs → `favoris/router.js` + vue
+- [x] Historique de ses propres commandes → `HistoriqueView.vue`
+- [x] Émettre une alerte → `alertes/router.js` + vue
+- [x] Isolation via `requireRole` + filtres client_id
+- [x] Thème interface : accent bleu → classe CSS `role-user`
 
 #### Visitor (non authentifié)
-- [ ] Pages publiques : accueil, catalogue en lecture, carte, fiche produit, inscription, connexion
-- [ ] Toute action transactionnelle (commande, favori, liste) redirige vers `/login`
+- [x] Pages publiques : accueil, catalogue, carte, fiche produit, inscription, connexion → `router/index.js` sans `meta.roles`
+- [x] Toute action transactionnelle redirige / bloque via guards (`session` store + `requireAuth` côté API)
 
 ### Matrice de permissions (à faire côté back ET front)
 
@@ -214,39 +208,39 @@ Deadlines : DL1 mer. 22 avril 12h · DL2 ven. 24 avril 13h · DL3 démo ven. 24 
 | Changer son rôle                | ❌ | ❌ | ❌ | ❌ (admin only) |
 
 - [ ] **Tests e2e** d'accès : chaque rôle doit recevoir 403 sur les routes interdites
-- [ ] Écran admin : gestion globale (users, produits, alertes)
+- [x] Écran admin : gestion globale (users, produits, alertes) → `AdminDashboardView.vue` + `AdminUsersView.vue` + `AdminAuditView.vue`
 
 ## 7. Fonctionnalités Producteur
 
-- [ ] Créer / modifier / supprimer un compte producteur
-- [ ] CRUD entreprise(s)
-- [ ] CRUD lieux de vente + adresses + horaires
-- [ ] CRUD produits (nom, bio, nature, prix, stock, saison, visibilité)
-- [ ] Consulter fiche détaillée d'un produit
-- [ ] Accepter / refuser une commande
-- [ ] Désinscription
+- [ ] Créer / modifier / supprimer un compte producteur — *création via register, suppression OK, modification à ajouter*
+- [x] CRUD entreprise(s)
+- [x] CRUD lieux de vente + adresses + horaires
+- [x] CRUD produits (nom, bio, nature, prix, stock, saison, visibilité)
+- [x] Consulter fiche détaillée d'un produit → `ProduitDetailView.vue`
+- [x] Accepter / refuser une commande → `commandes/router.js` PATCH
+- [x] Désinscription → `admin/router.js` (self-unregister)
 
 ## 8. Fonctionnalités Client
 
-- [ ] Créer / modifier un compte client
-- [ ] Parcourir catalogue / lieux de vente
-- [ ] Visualiser lieux d'achat sur une **carte** (Leaflet ou équivalent léger)
-- [ ] Passer une commande (choix mode : lieu de vente / point relais / livraison domicile)
-- [ ] Constituer une **liste de courses**
-- [ ] **Optimisation de parcours** (trajet optimisé pour récupérer les produits)
-- [ ] **Géocodage** des adresses via **Nominatim (OSM)** — respecter rate-limit 1 req/s, cacher le résultat en base (colonnes `lat`, `lon`)
-- [ ] Système de **favoris** (vendeurs)
-- [ ] Historique des transactions
-- [ ] Désinscription
+- [ ] Créer / modifier un compte client — *création OK, modification à ajouter*
+- [x] Parcourir catalogue / lieux de vente → `CatalogueView.vue`
+- [x] Visualiser lieux sur une **carte Leaflet** → `CarteView.vue`
+- [x] Passer une commande (3 modes) → `CheckoutView.vue` + `commandes/service.js`
+- [x] Constituer une **liste de courses** → `liste-courses/router.js` + `ListeCoursesView.vue`
+- [x] **Optimisation de parcours** → worker client + `POST /api/geo/itineraire` (nearest-neighbor + 2-opt)
+- [x] **Géocodage Nominatim** → `server/src/modules/geocode/service.js` + table `adresse_geocodee` (cache)
+- [x] Système de **favoris** (vendeurs) → `favoris/router.js` + vue
+- [x] Historique des transactions → `HistoriqueView.vue`
+- [x] Désinscription → self-unregister
 
 ## 9. Fonctionnalités transverses
 
-- [ ] Système d'**alertes** pour dysfonctionnements
-- [ ] Représentation **cartographique** des données
-- [ ] Traitement **serveur** des données géographiques
-- [ ] Gestion **visibilité produit** (saisonnier / indisponible / hors stock)
-- [ ] Messages de confirmation / erreur pour chaque action
-- [ ] Signalement visuel du rôle utilisateur (thème / menu)
+- [x] Système d'**alertes** pour dysfonctionnements → `alertes/router.js` + vues
+- [x] Représentation **cartographique** des données → `CarteView.vue` (Leaflet)
+- [x] Traitement **serveur** des données géographiques → PostGIS + `f_points_relais_proches` + `geo/service.js`
+- [x] Gestion **visibilité produit** (saisonnier / indisponible / hors stock) → colonnes + `v_produits_disponibles`
+- [x] Messages de confirmation / erreur pour chaque action → `Toast` PrimeVue
+- [x] Signalement visuel du rôle utilisateur → thème + pill email/rôle dans `App.vue`
 
 ## 10. Fonctionnalités supplémentaires (≥ 3 pour points bonus)
 
@@ -269,21 +263,21 @@ Deadlines : DL1 mer. 22 avril 12h · DL2 ven. 24 avril 13h · DL3 démo ven. 24 
 - [x] Service API (Fetch + JSON) avec gestion erreurs → `client/src/services/api.js`
 - [ ] S'appuyer sur PrimeVue : `Menubar`, `DataTable`, `Card`, `Dialog`, `Toast`, `ConfirmDialog`, `FileUpload`, `AutoComplete`, `InputText`, `Password`, `Dropdown`, `Calendar`, `DataView`
 - [ ] Composants métier (wrappers fins) : `ProduitCard` (autour de `Card`), `LieuMap` (Leaflet intégré), `FormField` (wrapper `InputText`/`Dropdown` avec label + erreur)
-- [ ] Utiliser `Toast` pour toutes les confirmations/erreurs d'action (exigence §9)
-- [ ] Utiliser `ConfirmDialog` pour les suppressions (icône PrimeIcons `pi pi-trash`)
-- [ ] Pages EJS pour rendu serveur initial + hydratation Vue (si SSR léger voulu)
-- [ ] Thème par rôle : surcharger les CSS variables PrimeVue (`--p-primary-color`) selon `super_admin` / `producteur` / `client`
-- [ ] Mode sombre : toggle via classe `.p-dark` sur `<html>` (preset Aura supporte)
-- [ ] Icônes d'action claires via **PrimeIcons** (ex. `pi pi-trash` pour supprimer)
-- [ ] Limiter le nombre de pages, regrouper les fonctionnalités
+- [x] Utiliser `Toast` pour toutes les confirmations/erreurs d'action → partout dans les vues
+- [ ] Utiliser `ConfirmDialog` pour les suppressions (icône PrimeIcons `pi pi-trash`) — *`ConfirmDialog` monté dans `App.vue` mais non câblé sur les suppressions*
+- [ ] Pages EJS pour rendu serveur initial + hydratation Vue — *non retenu (SPA pure)*
+- [x] Thème par rôle (CSS variables) → `style.css` + `session.applyRoleTheme()`
+- [ ] Mode sombre : toggle via classe `.p-dark`
+- [x] Icônes PrimeIcons pour les actions → `pi pi-*` partout
+- [x] Limiter le nombre de pages / grouper les fonctionnalités → SPA ~15 vues regroupées par rôle (`/admin/*`, `/seller/*`, `/app/*`)
 
 ### 11b. Accessibilité (a11y) & i18n
 
 - [ ] Labels explicites sur tous les champs (`<label for>` ou `aria-label`)
 - [ ] Contraste AA (≥ 4.5:1) — vérifier avec DevTools
 - [ ] Navigation clavier complète (focus visible, ordre logique, skip-link)
-- [ ] `lang="fr"` sur `<html>`, attributs `aria-*` sur composants custom
-- [ ] PrimeVue locale FR (`primevue.locale.fr`), `Intl.DateTimeFormat('fr-FR')`, `Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })`
+- [x] `lang="fr"` sur `<html>` → `client/index.html` (+ `aria-label` partiels)
+- [x] PrimeVue locale FR + `Intl.NumberFormat('fr-FR', currency EUR)` → `main.js` + vues (CatalogueView, CheckoutView…)
 - [ ] Messages d'erreur/succès lisibles lecteur d'écran (`aria-live="polite"` sur `Toast`)
 
 ### 11c. RGPD (minimal — ce qui est déjà fait)
@@ -301,21 +295,21 @@ Deadlines : DL1 mer. 22 avril 12h · DL2 ven. 24 avril 13h · DL3 démo ven. 24 
 
 ## 13. Éco-conception & Low-Tech
 
-- [ ] Appliquer les **100 bonnes pratiques** d'éco-conception web
-- [ ] Minifier JS/CSS, compresser images (WebP), lazy-loading
-- [ ] Imports PrimeVue à la carte (tree-shaking) — ne pas importer le package entier
-- [ ] Un seul thème PrimeVue chargé, pas de CSS de thème concurrent
-- [ ] Limiter requêtes réseau, cache agressif (Service Worker)
-- [ ] Police système, pas de polices externes superflues
-- [ ] Pas de tracker, analytics minimal
-- [ ] Dark mode / mode sobre (réduction énergie écran)
+- [ ] Appliquer les **100 bonnes pratiques** d'éco-conception web — *audit global à faire*
+- [ ] Minifier JS/CSS, compresser images (WebP) — *Vite minifie en build ; `loading="lazy"` ajouté sur images produit*
+- [x] Imports PrimeVue à la carte (tree-shaking) → imports nommés (`primevue/button` etc.)
+- [x] Un seul thème PrimeVue (preset Aura) → `main.js`
+- [ ] Cache agressif (Service Worker / PWA)
+- [ ] Police système, pas de polices externes superflues — *à vérifier*
+- [x] Pas de tracker, analytics minimal → aucun tracker embarqué
+- [ ] Dark mode / mode sobre
 - [ ] Mesurer l'empreinte (EcoIndex / GreenIT)
 
 ## 14. Déploiement (DL2)
 
 - [ ] Dump SQL de la base (`db/dump.sql`)
-- [ ] `README.md` : pré-requis, procédure d'installation, comptes de test
-- [ ] Script de seed reproductible
+- [x] `README.md` : pré-requis, procédure d'installation, comptes de test → `README.md`
+- [x] Script de seed reproductible → `db/seeds/index.js` (`faker.seed(42)`)
 - [ ] Déploiement statique front sur **GitHub Pages** / **GitLab Pages**
 - [ ] Déploiement Node sur **PlanetHoster (World Lite)** via **FTP**
 - [ ] Vérifier HTTPS + variables d'environnement de prod

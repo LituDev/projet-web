@@ -1,8 +1,8 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { config } from '../../config.js';
-import { loginSchema, registerSchema } from './schemas.js';
-import { authenticate, getCurrentUser, registerUser, unregisterSelf } from './service.js';
+import { loginSchema, registerSchema, updateProfileClientSchema, updateProfileProducteurSchema, requestResetSchema, confirmResetSchema } from './schemas.js';
+import { authenticate, getCurrentUser, registerUser, unregisterSelf, updateProfile, requestPasswordReset, confirmPasswordReset } from './service.js';
 import { requireAuth } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -53,6 +53,38 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await getCurrentUser(req.session.user.id);
     res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/me/profile', requireAuth, async (req, res, next) => {
+  try {
+    const role = req.session.user.role;
+    const schema = role === 'seller' ? updateProfileProducteurSchema : updateProfileClientSchema;
+    const input = schema.parse(req.body);
+    await updateProfile(req.session.user.id, input, role);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/password-reset/request', async (req, res, next) => {
+  try {
+    const { email } = requestResetSchema.parse(req.body);
+    await requestPasswordReset(email);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/password-reset/confirm', async (req, res, next) => {
+  try {
+    const { token, password } = confirmResetSchema.parse(req.body);
+    await confirmPasswordReset(token, password);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

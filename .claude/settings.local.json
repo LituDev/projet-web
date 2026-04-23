@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" ps -a --filter \"name=gumes\")",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" exec gumes-db psql -U gumes -d gumes_marketplace -c \"SELECT 1;\")",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" exec gumes-db bash -c 'PGPASSWORD=change-me-in-local psql -h localhost -U gumes -d gumes_marketplace -c \"SELECT 1;\"')",
+      "Bash(npx dotenv *)",
+      "Bash(node -e ' *)",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" exec gumes-db bash -c 'PGPASSWORD=definitely-wrong-password psql -h localhost -U gumes -d gumes_marketplace -c \"SELECT 1;\"')",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" inspect gumes-db --format '{{range .Config.Env}}{{println .}}{{end}}')",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" logs gumes-db)",
+      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" logs gumes-db --since 1m)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 6204\")",
+      "Bash(tasklist /FI \"PID eq 35272\")",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(npx vite *)",
+      "Bash(tasklist /FI \"PID eq 36304\")",
+      "PowerShell(netstat -ano)",
+      "Bash(docker compose *)",
+      "PowerShell(docker compose ps)",
+      "Bash(xargs grep *)",
+      "Bash(npm install *)",
+      "Bash(npm list *)"
+    ]
+  }
+}

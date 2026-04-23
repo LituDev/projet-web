@@ -35,3 +35,25 @@ export const loginSchema = z.object({
   email: z.string().email('Email invalide.'),
   password: z.string().min(1, 'Mot de passe requis.'),
 });
+
+export const updateProfileClientSchema = z.object({
+  prenom: z.string().min(1).max(80),
+  nom: z.string().min(1).max(80),
+  tel,
+  adresse: z.string().min(5).max(250).optional(),
+});
+
+export const updateProfileProducteurSchema = z.object({
+  prenom: z.string().min(1).max(80),
+  nom: z.string().min(1).max(80),
+  tel,
+});
+
+export const requestResetSchema = z.object({
+  email: z.string().email('Email invalide.'),
+});
+
+export const confirmResetSchema = z.object({
+  token: z.string().length(64),
+  password,
+});
