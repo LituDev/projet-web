@@ -62,4 +62,5 @@ export const produitListQuerySchema = z.object({
   tri: z.enum(['nom_asc', 'prix_asc', 'prix_desc', 'stock_desc', 'bio_first']).default('nom_asc'),
   limit: z.coerce.number().int().min(1).max(100).default(24),
   offset: z.coerce.number().int().min(0).default(0),
+  favoris_only: z.enum(['true', 'false']).optional(),
 });

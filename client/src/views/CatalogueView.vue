@@ -7,6 +7,7 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Paginator from 'primevue/paginator';
+import ToggleButton from 'primevue/togglebutton';
 import { useToast } from 'primevue/usetoast';
 import { api } from '../services/api.js';
 import { produitImageUrl } from '../services/images.js';
@@ -25,12 +26,12 @@ async function toggleFavori(p) {
     return;
   }
   try {
-    const etait = favoris.has(p.entreprise_id);
-    await favoris.toggle(p.entreprise_id);
+    const etait = favoris.has(p.id);
+    await favoris.toggle(p.id);
     toast.add({
       severity: 'success',
       summary: etait ? 'Retiré des favoris' : 'Ajouté aux favoris',
-      detail: p.entreprise_nom,
+      detail: p.nom,
       life: 1500,
     });
   } catch (e) {
@@ -38,7 +39,7 @@ async function toggleFavori(p) {
   }
 }
 
-const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc' });
+const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc', favoris_only: false });
 const produits = ref([]);
 const total = ref(0);
 const limit = ref(24);
@@ -77,6 +78,7 @@ async function charger() {
     if (filtres.nature) params.set('nature', filtres.nature);
     if (filtres.bio !== null) params.set('bio', String(filtres.bio));
     if (filtres.tri) params.set('tri', filtres.tri);
+    if (filtres.favoris_only && session.user) params.set('favoris_only', 'true');
     params.set('limit', String(limit.value));
     params.set('offset', String(offset.value));
     const res = await api.get(`/produits?${params}`);
@@ -137,6 +139,14 @@ onMounted(charger);
     <Select v-model="filtres.nature" :options="natures" option-label="label" option-value="value" placeholder="Nature" />
     <Select v-model="filtres.bio" :options="bios" option-label="label" option-value="value" placeholder="Bio" />
     <Select v-model="filtres.tri" :options="tris" option-label="label" option-value="value" placeholder="Trier par" />
+    <ToggleButton
+      v-if="session.user && session.user.role !== 'seller'"
+      v-model="filtres.favoris_only"
+      on-label="Favoris"
+      off-label="Favoris"
+      on-icon="pi pi-heart-fill"
+      off-icon="pi pi-heart"
+      :severity="filtres.favoris_only ? 'danger' : 'secondary'" />
   </div>
 
   <DataView :value="produits" :loading="loading" layout="grid">
@@ -154,10 +164,10 @@ onMounted(charger);
             <div class="head-actions">
               <Tag v-if="p.bio" severity="success" value="Bio" icon="pi pi-leaf" />
               <Button
-                :icon="favoris.has(p.entreprise_id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
-                :severity="favoris.has(p.entreprise_id) ? 'danger' : 'secondary'"
+                :icon="favoris.has(p.id) ? 'pi pi-heart-fill' : 'pi pi-heart'"
+                :severity="favoris.has(p.id) ? 'danger' : 'secondary'"
                 text rounded
-                :aria-label="favoris.has(p.entreprise_id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+                :aria-label="favoris.has(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                 @click="toggleFavori(p)" />
             </div>
           </header>

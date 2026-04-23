@@ -48,7 +48,7 @@ router.get('/mine', requireRole('seller', 'admin'), async (req, res, next) => {
 // Liste publique — via la vue v_produits_disponibles (filtre saison+visible+stock)
 router.get('/', async (req, res, next) => {
   try {
-    const { q, nature, bio, tri, limit, offset } = produitListQuerySchema.parse(req.query);
+    const { q, nature, bio, tri, limit, offset, favoris_only } = produitListQuerySchema.parse(req.query);
     const clauses = [];
     const params = [];
     const ORDER_BY = {
@@ -64,6 +64,10 @@ router.get('/', async (req, res, next) => {
     if (nature) { params.push(nature); clauses.push(`nature = $${params.length}`); }
     if (bio === 'true') clauses.push('bio = TRUE');
     if (bio === 'false') clauses.push('bio = FALSE');
+    if (favoris_only === 'true' && req.session?.user?.id) {
+      params.push(req.session.user.id);
+      clauses.push(`id IN (SELECT produit_id FROM favori WHERE client_id = $${params.length})`);
+    }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
 
     params.push(limit, offset);

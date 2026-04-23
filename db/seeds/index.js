@@ -293,12 +293,12 @@ async function main() {
 
     // ─── Favoris ──────────────────────────────────────────────────────────
     console.log('→ Favoris (≈3 par client)');
-    const entrepriseIds = [...new Set(producteurs.map((p) => p.entrepriseId))];
+    const produitIds = produits.map((p) => p.id);
     for (const c of clients) {
-      for (const eid of pickN(entrepriseIds, 3)) {
+      for (const pid of pickN(produitIds, 3)) {
         await client.query(
-          `INSERT INTO favori (client_id, entreprise_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [c.userId, eid],
+          `INSERT INTO favori (client_id, produit_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [c.userId, pid],
         );
       }
     }
