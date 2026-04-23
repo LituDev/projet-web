@@ -54,6 +54,7 @@ const routes = [
     meta: { requiresAuth: true, roles: ['seller', 'admin'] },
     children: [
       { path: '', redirect: '/seller/commandes' },
+      { path: 'compte', name: 'seller-compte', component: () => import('../views/app/CompteView.vue') },
       { path: 'commandes', name: 'seller-commandes', component: () => import('../views/seller/SellerCommandesView.vue') },
       { path: 'entreprises', name: 'seller-entreprises', component: () => import('../views/seller/SellerEntreprisesView.vue') },
       { path: 'produits', name: 'seller-produits', component: () => import('../views/seller/SellerProduitsView.vue') },
