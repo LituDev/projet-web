@@ -28,6 +28,23 @@ async function assertEntrepriseOwner(entrepriseId, session) {
   }
 }
 
+// Liste vendeur — tous les produits des entreprises du vendeur connecté, sans filtre de dispo
+router.get('/mine', requireRole('seller', 'admin'), async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT p.id, p.nom, p.description, p.nature, p.bio, p.prix_cents, p.stock,
+              p.shippable, p.visibilite, p.est_saisonnier, p.entreprise_id,
+              e.nom AS entreprise_nom
+       FROM produit p
+       JOIN entreprise e ON e.id = p.entreprise_id
+       WHERE e.owner_id = $1
+       ORDER BY p.nom ASC`,
+      [req.session.user.id],
+    );
+    res.json({ data: rows });
+  } catch (err) { next(err); }
+});
+
 // Liste publique — via la vue v_produits_disponibles (filtre saison+visible+stock)
 router.get('/', async (req, res, next) => {
   try {

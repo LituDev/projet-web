@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref, reactive } from 'vue';
+import { RouterLink } from 'vue-router';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
@@ -26,6 +27,7 @@ const loading = ref(false);
 const dialogVisible = ref(false);
 const editing = ref(false);
 const err = ref('');
+const dialogErrors = ref([]);
 
 const natures = [
   { label: 'Légume', value: 'legume' },
@@ -55,12 +57,12 @@ const form = reactive(vide());
 async function charger() {
   loading.value = true;
   try {
-    const ent = await api.get('/entreprises');
+    const [ent, res] = await Promise.all([
+      api.get('/entreprises'),
+      api.get('/produits/mine'),
+    ]);
     mesEntreprises.value = ent.data.filter((e) => e.owner_id === session.user.id);
-    const res = await api.get('/produits?limit=100');
-    // Vue publique : on filtre côté client sur celles de nos entreprises
-    const myIds = new Set(mesEntreprises.value.map((e) => e.id));
-    produits.value = res.data.filter((p) => myIds.has(p.entreprise_id));
+    produits.value = res.data;
   } catch (e) { err.value = e.message; }
   finally { loading.value = false; }
 }
@@ -69,10 +71,12 @@ function ouvrirCreation() {
   Object.assign(form, vide());
   if (mesEntreprises.value.length === 1) form.entreprise_id = mesEntreprises.value[0].id;
   editing.value = false;
+  dialogErrors.value = [];
   dialogVisible.value = true;
 }
 
 async function ouvrirEdition(p) {
+  dialogErrors.value = [];
   try {
     const res = await api.get(`/produits/${p.id}`);
     Object.assign(form, {
@@ -98,6 +102,7 @@ async function ouvrirEdition(p) {
 }
 
 async function sauver() {
+  dialogErrors.value = [];
   try {
     if (editing.value) {
       await api.patch(`/produits/${form.id}`, {
@@ -111,7 +116,7 @@ async function sauver() {
         nature: form.nature, bio: form.bio, prix_cents: form.prix_cents, stock: form.stock,
         shippable: form.shippable, visibilite: form.visibilite,
         est_saisonnier: form.est_saisonnier,
-        mois_debut: form.mois_debut, mois_fin: form.mois_fin,
+        ...(form.est_saisonnier ? { mois_debut: form.mois_debut, mois_fin: form.mois_fin } : {}),
         lieu_ids: [],
       });
     }
@@ -119,7 +124,11 @@ async function sauver() {
     toast.add({ severity: 'success', summary: 'Enregistré', life: 2000 });
     await charger();
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 4000 });
+    if (e.details && typeof e.details === 'object') {
+      dialogErrors.value = Object.values(e.details).flat();
+    } else {
+      dialogErrors.value = [e.message];
+    }
   }
 }
 
@@ -150,10 +159,15 @@ onMounted(charger);
 <template>
   <header class="head">
     <h2>Mes produits</h2>
-    <Button label="Ajouter" icon="pi pi-plus" @click="ouvrirCreation" />
+    <Button label="Ajouter" icon="pi pi-plus" @click="ouvrirCreation" :disabled="mesEntreprises.length === 0" />
   </header>
 
   <Message v-if="err" severity="error" :closable="false">{{ err }}</Message>
+
+  <Message v-if="!loading && mesEntreprises.length === 0" severity="warn" :closable="false">
+    Vous devez d'abord créer une entreprise avant de pouvoir ajouter des produits.
+    <RouterLink to="/seller/entreprises">Créer une entreprise</RouterLink>
+  </Message>
 
   <DataTable :value="produits" :loading="loading" paginator :rows="15" striped-rows>
     <Column field="nom" header="Nom" :sortable="true" />
@@ -174,6 +188,11 @@ onMounted(charger);
   </DataTable>
 
   <Dialog v-model:visible="dialogVisible" :header="editing ? 'Modifier le produit' : 'Nouveau produit'" modal style="width: 36rem">
+    <Message v-if="dialogErrors.length" severity="error" :closable="false" style="margin-bottom: .8rem">
+      <ul style="margin: 0; padding-left: 1.2rem;">
+        <li v-for="msg in dialogErrors" :key="msg">{{ msg }}</li>
+      </ul>
+    </Message>
     <div class="form">
       <div v-if="!editing" class="field">
         <label>Entreprise</label>
