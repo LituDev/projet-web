@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted } from 'vue';
-import { RouterLink, RouterView } from 'vue-router';
+import { RouterLink, RouterView, useRouter } from 'vue-router';
 import Menubar from 'primevue/menubar';
 import Button from 'primevue/button';
 import Toast from 'primevue/toast';
@@ -10,6 +10,7 @@ import { usePanierStore } from './stores/panier.js';
 
 const session = useSessionStore();
 const panier = usePanierStore();
+const router = useRouter();
 
 onMounted(async () => {
   await session.fetchMe();
@@ -35,6 +36,7 @@ const items = computed(() => {
 
 async function logout() {
   await session.logout();
+  router.push('/');
 }
 </script>
 

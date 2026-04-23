@@ -287,4 +287,35 @@ describe('commandes', () => {
     });
     assert.equal(res.status, 403);
   });
+
+  test('POST /:id/cancel par client sur commande non livrée → 200', async () => {
+    const { produitId, lieuId } = await newSellerWithProductAndLieu();
+    const { agent: clt } = await registerClient();
+    const created = await clt.post('/api/commandes').send({
+      mode_livraison: 'pickup_store',
+      lignes: [{ produit_id: produitId, quantite: 1 }],
+      lieu_id: lieuId,
+    });
+    assert.equal(created.status, 201);
+
+    const cancelled = await clt.post(`/api/commandes/${created.body.commande.id}/cancel`).send({});
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.commande.statut, 'cancelled');
+  });
+
+  test('POST /:id/cancel sur commande livrée → 409', async () => {
+    const { produitId, lieuId } = await newSellerWithProductAndLieu();
+    const { agent: clt } = await registerClient();
+    const created = await clt.post('/api/commandes').send({
+      mode_livraison: 'pickup_store',
+      lignes: [{ produit_id: produitId, quantite: 1 }],
+      lieu_id: lieuId,
+    });
+    assert.equal(created.status, 201);
+
+    await dbQuery('UPDATE commande SET statut = $2 WHERE id = $1', [created.body.commande.id, 'delivered']);
+    const cancelled = await clt.post(`/api/commandes/${created.body.commande.id}/cancel`).send({});
+    assert.equal(cancelled.status, 409);
+    assert.equal(cancelled.body.error.code, 'cannot_cancel_delivered');
+  });
 });

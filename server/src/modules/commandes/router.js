@@ -93,6 +93,43 @@ router.get('/:id', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Annulation par le client propriétaire (ou admin) tant que non livrée
+router.post('/:id/cancel', requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, client_id, statut
+       FROM commande
+       WHERE id = $1`,
+      [req.params.id],
+    );
+    if (rows.length === 0) throw new HttpError(404, 'not_found', 'Commande introuvable.');
+
+    const commande = rows[0];
+    const user = req.session.user;
+    if (user.role !== 'admin' && commande.client_id !== user.id) {
+      throw new HttpError(403, 'forbidden', "Cette commande n'est pas la vôtre.");
+    }
+    if (commande.statut === 'delivered') {
+      throw new HttpError(409, 'cannot_cancel_delivered', 'Une commande livrée ne peut plus être annulée.');
+    }
+    if (commande.statut === 'cancelled') {
+      throw new HttpError(409, 'already_cancelled', 'Cette commande est déjà annulée.');
+    }
+    if (commande.statut === 'refused') {
+      throw new HttpError(409, 'already_refused', 'Cette commande est déjà refusée.');
+    }
+
+    const updated = await query(
+      `UPDATE commande
+       SET statut = 'cancelled'
+       WHERE id = $1
+       RETURNING id, statut`,
+      [req.params.id],
+    );
+    res.json({ commande: updated.rows[0] });
+  } catch (err) { next(err); }
+});
+
 // Changement de statut (seller/admin sur une commande de leurs produits)
 router.patch('/:id', requireRole('seller', 'admin'), async (req, res, next) => {
   try {
