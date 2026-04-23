@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter, useRoute, RouterLink } from 'vue-router';
 import Card from 'primevue/card';
 import InputText from 'primevue/inputtext';
 import Password from 'primevue/password';
@@ -77,6 +77,7 @@ async function submit() {
         </div>
 
         <Button type="submit" label="Se connecter" icon="pi pi-sign-in" :loading="pending" />
+        <RouterLink to="/mot-de-passe-oublie" class="forgot-link">Mot de passe oublié ?</RouterLink>
       </form>
     </template>
   </Card>
@@ -86,4 +87,6 @@ async function submit() {
 .auth-card { max-width: 28rem; margin: 2rem auto; }
 .form { display: flex; flex-direction: column; gap: 1rem; }
 .field { display: flex; flex-direction: column; gap: 0.3rem; }
+.forgot-link { font-size: 0.9rem; color: var(--p-text-muted-color); text-decoration: none; align-self: flex-start; }
+.forgot-link:hover { color: var(--p-primary-color); }
 </style>

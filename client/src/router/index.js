@@ -21,6 +21,8 @@ const routes = [
   },
   { path: '/connexion', name: 'connexion', component: () => import('../views/LoginView.vue'), meta: { guestOnly: true } },
   { path: '/inscription', name: 'inscription', component: () => import('../views/RegisterView.vue'), meta: { guestOnly: true } },
+  { path: '/mot-de-passe-oublie', name: 'mot-de-passe-oublie', component: () => import('../views/ForgotPasswordView.vue'), meta: { guestOnly: true } },
+  { path: '/reset-password', name: 'reset-password', component: () => import('../views/ResetPasswordView.vue') },
   {
     path: '/app',
     component: () => import('../views/app/AppLayout.vue'),

@@ -1,8 +1,10 @@
 import argon2 from 'argon2';
+import { randomBytes } from 'crypto';
 import { withTransaction, query } from '../../db/pool.js';
 import { HttpError } from '../../middlewares/error.js';
 import { geocodeAddress } from '../geocode/service.js';
 import { logger } from '../../logger.js';
+import { sendPasswordResetEmail } from './email.js';
 
 const ARGON2_OPTS = { type: argon2.argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 };
 
@@ -105,7 +107,10 @@ export async function unregisterSelf(userId) {
 export async function getCurrentUser(userId) {
   const result = await query(
     `SELECT u.id, u.email, u.role, u.created_at, u.last_login_at,
-            COALESCE(pc.prenom, pp.prenom) AS prenom
+            COALESCE(pc.prenom, pp.prenom) AS prenom,
+            COALESCE(pc.nom,    pp.nom)    AS nom,
+            COALESCE(pc.tel,    pp.tel)    AS tel,
+            pc.adresse
      FROM utilisateur u
      LEFT JOIN profil_client     pc ON pc.user_id = u.id
      LEFT JOIN profil_producteur pp ON pp.user_id = u.id
@@ -113,4 +118,68 @@ export async function getCurrentUser(userId) {
     [userId],
   );
   return result.rows[0] ?? null;
+}
+
+export async function updateProfile(userId, input, role) {
+  if (role === 'seller') {
+    await query(
+      `UPDATE profil_producteur SET prenom = $2, nom = $3, tel = $4 WHERE user_id = $1`,
+      [userId, input.prenom, input.nom, input.tel],
+    );
+  } else {
+    await query(
+      `UPDATE profil_client SET prenom = $2, nom = $3, tel = $4, adresse = COALESCE($5, adresse) WHERE user_id = $1`,
+      [userId, input.prenom, input.nom, input.tel, input.adresse ?? null],
+    );
+  }
+}
+
+export async function requestPasswordReset(email) {
+  const result = await query(
+    'SELECT id FROM utilisateur WHERE email = $1 AND deleted_at IS NULL',
+    [email],
+  );
+  if (result.rowCount === 0) return; // ne pas révéler si l'email existe
+
+  const userId = result.rows[0].id;
+  const token = randomBytes(32).toString('hex'); // 64 chars hex
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE password_reset_token SET used_at = NOW()
+       WHERE user_id = $1 AND used_at IS NULL`,
+      [userId],
+    );
+    await client.query(
+      `INSERT INTO password_reset_token (user_id, token) VALUES ($1, $2)`,
+      [userId, token],
+    );
+  });
+
+  const base = process.env.CLIENT_URL ?? 'http://localhost:5173';
+  await sendPasswordResetEmail(email, `${base}/reset-password?token=${token}`);
+}
+
+export async function confirmPasswordReset(token, newPassword) {
+  const result = await query(
+    `SELECT user_id FROM password_reset_token
+     WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()`,
+    [token],
+  );
+  if (result.rowCount === 0) {
+    throw new HttpError(400, 'invalid_token', 'Lien invalide ou expiré.');
+  }
+  const { user_id } = result.rows[0];
+  const passwordHash = await argon2.hash(newPassword, ARGON2_OPTS);
+
+  await withTransaction(async (client) => {
+    await client.query(
+      'UPDATE utilisateur SET password_hash = $1 WHERE id = $2',
+      [passwordHash, user_id],
+    );
+    await client.query(
+      'UPDATE password_reset_token SET used_at = NOW() WHERE token = $1',
+      [token],
+    );
+  });
 }
