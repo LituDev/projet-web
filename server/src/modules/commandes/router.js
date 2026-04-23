@@ -17,7 +17,7 @@ router.post('/quote', requireAuth, async (req, res, next) => {
 });
 
 // Création de commande
-router.post('/', requireRole('user', 'seller', 'admin'), async (req, res, next) => {
+router.post('/', requireRole('user', 'admin'), async (req, res, next) => {
   try {
     const body = createCommandeSchema.parse(req.body);
     const commande = await createCommande(req.session, body);

@@ -122,6 +122,10 @@ function formatPrix(cents) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
 
+function canAjouterPanier() {
+  return session.user?.role !== 'seller';
+}
+
 onMounted(charger);
 </script>
 
@@ -170,6 +174,7 @@ onMounted(charger);
           <footer>
             <span class="prix">{{ formatPrix(p.prix_cents) }}</span>
             <Button
+              v-if="canAjouterPanier()"
               label="Ajouter"
               icon="pi pi-shopping-cart"
               size="small"

@@ -11,7 +11,7 @@ const routes = [
     path: '/checkout',
     name: 'checkout',
     component: () => import('../views/CheckoutView.vue'),
-    meta: { requiresAuth: true, roles: ['user', 'seller', 'admin'] },
+    meta: { requiresAuth: true, roles: ['user', 'admin'] },
   },
   {
     path: '/commandes/:id',
@@ -68,6 +68,9 @@ router.beforeEach(async (to) => {
   const session = useSessionStore();
   if (!session.loaded) {
     await session.fetchMe();
+  }
+  if (to.name === 'panier' && session.user?.role === 'seller') {
+    return { name: 'home' };
   }
   if (to.meta.requiresAuth && !session.user) {
     return { name: 'connexion', query: { redirect: to.fullPath } };

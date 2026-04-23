@@ -167,30 +167,14 @@ describe('commandes', () => {
     assert.equal(res.body.error.code, 'lieu_invalid');
   });
 
-  test('POST / par seller → 201 (un fournisseur peut aussi commander)', async () => {
+  test('POST / par seller → 403 (rôle user/admin requis)', async () => {
     const { sellerAgent, produitId, lieuId } = await newSellerWithProductAndLieu();
     const res = await sellerAgent.post('/api/commandes').send({
       mode_livraison: 'pickup_store',
       lignes: [{ produit_id: produitId, quantite: 1 }],
       lieu_id: lieuId,
     });
-    assert.equal(res.status, 201);
-  });
-
-  test('GET /:id — seller acheteur voit sa propre commande', async () => {
-    const { produitId, lieuId } = await newSellerWithProductAndLieu();
-    const { agent: buyerSeller } = await registerSeller();
-
-    const created = await buyerSeller.post('/api/commandes').send({
-      mode_livraison: 'pickup_store',
-      lignes: [{ produit_id: produitId, quantite: 1 }],
-      lieu_id: lieuId,
-    });
-    assert.equal(created.status, 201);
-
-    const res = await buyerSeller.get(`/api/commandes/${created.body.commande.id}`);
-    assert.equal(res.status, 200);
-    assert.equal(res.body.commande.id, created.body.commande.id);
+    assert.equal(res.status, 403);
   });
 
   test('GET / — client ne voit que ses commandes', async () => {

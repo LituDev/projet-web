@@ -12,6 +12,8 @@ const session = useSessionStore();
 const panier = usePanierStore();
 const router = useRouter();
 
+const canUsePanier = computed(() => !session.user || session.user.role !== 'seller');
+
 onMounted(async () => {
   await session.fetchMe();
 });
@@ -60,7 +62,7 @@ async function logout() {
     </template>
     <template #end>
       <div class="nav-end">
-        <RouterLink to="/panier" class="panier-link" aria-label="Voir le panier">
+        <RouterLink v-if="canUsePanier" to="/panier" class="panier-link" aria-label="Voir le panier">
           <Button icon="pi pi-shopping-cart" text :badge="panier.totalArticles ? String(panier.totalArticles) : undefined" badge-severity="contrast" />
         </RouterLink>
         <template v-if="session.user">

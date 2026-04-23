@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { api } from '../services/api.js';
 import { useFavorisStore } from './favoris.js';
+import { usePanierStore } from './panier.js';
 
 function applyRoleTheme(role) {
   const html = document.documentElement;
@@ -25,6 +26,9 @@ export const useSessionStore = defineStore('session', {
         const { user } = await api.get('/auth/me');
         this.user = user;
         applyRoleTheme(user?.role);
+        if (user?.role === 'seller') {
+          usePanierStore().vider();
+        }
         if (user?.role === 'user' || user?.role === 'admin') {
           await useFavorisStore().charger();
         }
@@ -43,6 +47,9 @@ export const useSessionStore = defineStore('session', {
       const { user } = await api.post('/auth/login', { email, password });
       this.user = user;
       applyRoleTheme(user.role);
+      if (user.role === 'seller') {
+        usePanierStore().vider();
+      }
       if (user.role === 'user' || user.role === 'admin') {
         await useFavorisStore().charger();
       }
@@ -52,6 +59,9 @@ export const useSessionStore = defineStore('session', {
       const { user } = await api.post('/auth/register', payload);
       this.user = user;
       applyRoleTheme(user.role);
+      if (user.role === 'seller') {
+        usePanierStore().vider();
+      }
       if (user.role === 'user' || user.role === 'admin') {
         await useFavorisStore().charger();
       }

@@ -40,6 +40,8 @@ const mois = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 's
 const formatPrix = (cents) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
+const canAjouterPanier = computed(() => session.user?.role !== 'seller');
+
 async function charger() {
   loading.value = true;
   err.value = '';
@@ -131,7 +133,7 @@ onMounted(charger);
     <Card class="achat">
       <template #content>
         <div class="prix">{{ formatPrix(produit.prix_cents) }}</div>
-        <div class="achat-row">
+        <div v-if="canAjouterPanier" class="achat-row">
           <InputNumber v-model="quantite" :min="1" :max="Math.max(1, stockRestant)" show-buttons button-layout="horizontal" :disabled="stockRestant === 0" />
           <Button
             label="Ajouter au panier"
@@ -139,7 +141,7 @@ onMounted(charger);
             :disabled="stockRestant === 0"
             @click="ajouterPanier" />
         </div>
-        <small class="stock-info" :class="{ out: stockRestant === 0 }">
+        <small v-if="canAjouterPanier" class="stock-info" :class="{ out: stockRestant === 0 }">
           <span v-if="stockRestant === 0">Stock déjà atteint dans votre panier</span>
           <span v-else>Encore {{ stockRestant }} disponible(s)</span>
         </small>
