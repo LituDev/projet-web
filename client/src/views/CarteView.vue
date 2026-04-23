@@ -1,9 +1,11 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Card from 'primevue/card';
 import ToggleButton from 'primevue/togglebutton';
+import Button from 'primevue/button';
 import { api } from '../services/api.js';
 
 const mapRef = ref(null);
@@ -13,6 +15,7 @@ const pointsRelais = ref([]);
 const selectedLieu = ref(null);
 const selectedRelais = ref(null);
 const currentMapBounds = ref(null);
+const router = useRouter();
 let map = null;
 const lieuxLayer = L.layerGroup();
 const relaisLayer = L.layerGroup();
@@ -90,6 +93,25 @@ function setActiveLieuMarker(lieu) {
   }
 }
 
+function catalogueUrlForLieu(lieu) {
+  if (!lieu?.entreprise_id) return '/catalogue';
+  const params = new URLSearchParams();
+  params.set('entreprise_id', lieu.entreprise_id);
+  if (lieu.entreprise_nom) params.set('entreprise_nom', lieu.entreprise_nom);
+  return `/catalogue?${params.toString()}`;
+}
+
+function voirProduitsLieu(lieu) {
+  if (!lieu?.entreprise_id) return;
+  router.push({
+    name: 'catalogue',
+    query: {
+      entreprise_id: lieu.entreprise_id,
+      entreprise_nom: lieu.entreprise_nom ?? undefined,
+    },
+  });
+}
+
 async function chargerLieux() {
   lieuxLayer.clearLayers();
   const path = onlyOpen.value ? '/geo/lieux?ouverts=1' : '/geo/lieux';
@@ -98,8 +120,12 @@ async function chargerLieux() {
 
   for (const l of res.data) {
     const icon = onlyOpen.value ? iconLieuOuvert : iconLieu;
+    const catalogueLink = catalogueUrlForLieu(l);
     const marker = L.marker([l.lat, l.lon], { icon })
-      .bindPopup(`<strong>${l.nom}</strong><br>${l.entreprise_nom ?? ''}<br><small>${l.adresse ?? ''}</small>`)
+      .bindPopup(
+        `<strong>${l.nom}</strong><br>${l.entreprise_nom ?? ''}<br><small>${l.adresse ?? ''}</small><br>`
+        + `<a href="${catalogueLink}" class="popup-link">Voir les produits</a>`,
+      )
       .addTo(lieuxLayer);
 
     marker.on('click', () => {
@@ -245,6 +271,14 @@ watch(selectedRelais, (relais) => {
               <span class="dot" style="background:#15803d" />
               Produits / lieux de vente
             </h3>
+            <Button
+              v-if="selectedLieu?.entreprise_id"
+              label="Voir les produits de cette ferme"
+              icon="pi pi-arrow-right"
+              text
+              class="go-catalogue"
+              @click="voirProduitsLieu(selectedLieu)"
+            />
             <div class="list-scroll">
               <button
                 v-for="lieu in lieuxVisibles"
@@ -337,6 +371,10 @@ watch(selectedRelais, (relais) => {
   font-size: .9rem;
   font-weight: 600;
   margin: 0 0 .45rem 0;
+}
+.go-catalogue {
+  padding: 0 .1rem;
+  margin-bottom: .4rem;
 }
 .list-scroll {
   display: flex;

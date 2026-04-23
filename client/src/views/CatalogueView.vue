@@ -1,6 +1,6 @@
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue';
-import { RouterLink } from 'vue-router';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import DataView from 'primevue/dataview';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
@@ -18,6 +18,8 @@ const panier = usePanierStore();
 const favoris = useFavorisStore();
 const session = useSessionStore();
 const toast = useToast();
+const route = useRoute();
+const router = useRouter();
 
 async function toggleFavori(p) {
   if (!session.user) {
@@ -39,6 +41,8 @@ async function toggleFavori(p) {
 }
 
 const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc' });
+const filtreEntrepriseId = ref('');
+const filtreEntrepriseNom = ref('');
 const produits = ref([]);
 const total = ref(0);
 const limit = ref(24);
@@ -74,6 +78,7 @@ async function charger() {
   try {
     const params = new URLSearchParams();
     if (filtres.q) params.set('q', filtres.q);
+    if (filtreEntrepriseId.value) params.set('entreprise_id', filtreEntrepriseId.value);
     if (filtres.nature) params.set('nature', filtres.nature);
     if (filtres.bio !== null) params.set('bio', String(filtres.bio));
     if (filtres.tri) params.set('tri', filtres.tri);
@@ -89,11 +94,27 @@ async function charger() {
   }
 }
 
+const hasEntrepriseFilter = computed(() => Boolean(filtreEntrepriseId.value));
+
+function clearEntrepriseFilter() {
+  filtreEntrepriseId.value = '';
+  filtreEntrepriseNom.value = '';
+  const nextQuery = { ...route.query };
+  delete nextQuery.entreprise_id;
+  delete nextQuery.entreprise_nom;
+  router.replace({ query: nextQuery });
+}
+
 let debounce;
 watch(filtres, () => {
   clearTimeout(debounce);
   debounce = setTimeout(() => { offset.value = 0; charger(); }, 250);
 }, { deep: true });
+
+watch(filtreEntrepriseId, () => {
+  offset.value = 0;
+  charger();
+});
 
 function onPage(e) { offset.value = e.first; charger(); }
 
@@ -126,17 +147,36 @@ function canAjouterPanier() {
   return session.user?.role !== 'seller';
 }
 
-onMounted(charger);
+onMounted(() => {
+  if (typeof route.query.q === 'string') {
+    filtres.q = route.query.q;
+  }
+  if (typeof route.query.entreprise_id === 'string') {
+    filtreEntrepriseId.value = route.query.entreprise_id;
+  }
+  if (typeof route.query.entreprise_nom === 'string') {
+    filtreEntrepriseNom.value = route.query.entreprise_nom;
+  }
+  charger();
+});
 </script>
 
 <template>
   <h2>Catalogue</h2>
 
   <div class="filtres">
-    <InputText v-model="filtres.q" placeholder="Rechercher…" class="search" />
+    <InputText v-model="filtres.q" placeholder="Produit, producteur ou ferme…" class="search" />
     <Select v-model="filtres.nature" :options="natures" option-label="label" option-value="value" placeholder="Nature" />
     <Select v-model="filtres.bio" :options="bios" option-label="label" option-value="value" placeholder="Bio" />
     <Select v-model="filtres.tri" :options="tris" option-label="label" option-value="value" placeholder="Trier par" />
+    <Button
+      v-if="hasEntrepriseFilter"
+      :label="`Ferme: ${filtreEntrepriseNom || 'sélectionnée'}`"
+      icon="pi pi-times"
+      severity="contrast"
+      outlined
+      @click="clearEntrepriseFilter"
+    />
   </div>
 
   <DataView :value="produits" :loading="loading" layout="grid">

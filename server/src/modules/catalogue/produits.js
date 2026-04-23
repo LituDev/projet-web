@@ -48,7 +48,7 @@ router.get('/mine', requireRole('seller', 'admin'), async (req, res, next) => {
 // Liste publique — via la vue v_produits_disponibles (filtre saison+visible+stock)
 router.get('/', async (req, res, next) => {
   try {
-    const { q, nature, bio, tri, limit, offset } = produitListQuerySchema.parse(req.query);
+    const { q, entreprise_id, nature, bio, tri, limit, offset } = produitListQuerySchema.parse(req.query);
     const clauses = [];
     const params = [];
     const ORDER_BY = {
@@ -60,7 +60,19 @@ router.get('/', async (req, res, next) => {
     };
     const orderBy = ORDER_BY[tri] ?? ORDER_BY.nom_asc;
 
-    if (q) { params.push(`%${q}%`); clauses.push(`(nom ILIKE $${params.length} OR description ILIKE $${params.length})`); }
+    if (q) {
+      params.push(`%${q}%`);
+      clauses.push(`(
+        nom ILIKE $${params.length}
+        OR description ILIKE $${params.length}
+        OR entreprise_nom ILIKE $${params.length}
+        OR producteur_nom ILIKE $${params.length}
+      )`);
+    }
+    if (entreprise_id) {
+      params.push(entreprise_id);
+      clauses.push(`entreprise_id = $${params.length}`);
+    }
     if (nature) { params.push(nature); clauses.push(`nature = $${params.length}`); }
     if (bio === 'true') clauses.push('bio = TRUE');
     if (bio === 'false') clauses.push('bio = FALSE');

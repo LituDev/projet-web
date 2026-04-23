@@ -45,6 +45,27 @@ describe('produits', () => {
     assert.ok(res.body.data.some((p) => p.nom.toLowerCase().includes(needle.toLowerCase())));
   });
 
+  test('GET / q substring sur nom de ferme', async () => {
+    const list = await request().get('/api/produits?limit=1');
+    const entrepriseNom = list.body.data[0]?.entreprise_nom;
+    const needle = entrepriseNom?.split(' ')[0];
+    if (!needle) return;
+    const res = await request().get(`/api/produits?q=${encodeURIComponent(needle)}`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.data.some((p) => p.entreprise_nom?.toLowerCase().includes(needle.toLowerCase())));
+  });
+
+  test('GET / filtre entreprise_id', async () => {
+    const list = await request().get('/api/produits?limit=1');
+    const entrepriseId = list.body.data[0]?.entreprise_id;
+    if (!entrepriseId) return;
+
+    const res = await request().get(`/api/produits?entreprise_id=${entrepriseId}&limit=50`);
+    assert.equal(res.status, 200);
+    assert.ok(res.body.data.length >= 1);
+    assert.ok(res.body.data.every((p) => p.entreprise_id === entrepriseId));
+  });
+
   test('GET / limit hors bornes → 400', async () => {
     const res = await request().get('/api/produits?limit=999');
     assert.equal(res.status, 400);

@@ -57,6 +57,7 @@ export const produitUpdateSchema = z.object({
 
 export const produitListQuerySchema = z.object({
   q: z.string().max(120).optional(),
+  entreprise_id: z.uuid().optional(),
   nature: z.enum(['legume', 'fruit', 'viande', 'fromage', 'epicerie', 'boisson', 'autre']).optional(),
   bio: z.enum(['true', 'false']).optional(),
   tri: z.enum(['nom_asc', 'prix_asc', 'prix_desc', 'stock_desc', 'bio_first']).default('nom_asc'),
