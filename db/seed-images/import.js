@@ -10,8 +10,11 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, basename, extname, join } from 'node:path';
 import { promises as fs } from 'node:fs';
+import { createRequire } from 'node:module';
 import pg from 'pg';
-import sharp from 'sharp';
+
+const requireFromServer = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../server/package.json'));
+const sharp = requireFromServer('sharp');
 
 const here = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(here, '../../.env') });

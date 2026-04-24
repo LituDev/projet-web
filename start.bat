@@ -48,7 +48,12 @@ goto waitloop
 echo     Base prete.
 
 REM ── Dependances ─────────────────────────────────────────────────────────────
-if not exist node_modules (
+set "NEED_INSTALL=0"
+if not exist node_modules set "NEED_INSTALL=1"
+call npm --workspace server ls sharp --depth=0 >nul 2>nul
+if errorlevel 1 set "NEED_INSTALL=1"
+
+if "%NEED_INSTALL%"=="1" (
   echo --^> Installation des dependances npm...
   call npm install
   if errorlevel 1 (echo Echec de npm install. & exit /b 1)
