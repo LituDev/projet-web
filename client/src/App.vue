@@ -39,7 +39,7 @@ const items = computed(() => {
   ];
   if (session.isClient || session.isAdmin) {
     base.push({
-      label: "Mon espace",
+      label: "Mes commandes",
       icon: "pi pi-list",
       route: "/app/historique",
     });
