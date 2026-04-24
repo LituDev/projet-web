@@ -22,6 +22,8 @@ const nom = ref('');
 const prenom = ref('');
 const tel = ref('');
 const adresse = ref('');
+const ville = ref('');
+const codePostal = ref('');
 const errorMsg = ref('');
 const pending = ref(false);
 
@@ -50,6 +52,8 @@ function buildRegisterErrorMessage(err) {
       nom: 'Nom',
       prenom: 'Prénom',
       tel: 'Téléphone',
+      ville: 'Ville',
+      code_postal: 'Code postal',
       adresse: 'Adresse',
       role: 'Rôle',
     });
@@ -63,7 +67,11 @@ async function submit() {
   pending.value = true;
   try {
     const payload = { role: role.value, email: email.value, password: password.value, nom: nom.value, prenom: prenom.value, tel: tel.value };
-    if (role.value === 'user') payload.adresse = adresse.value;
+    if (role.value === 'user') {
+      if (adresse.value.trim()) payload.adresse = adresse.value.trim();
+      if (ville.value.trim()) payload.ville = ville.value.trim();
+      if (codePostal.value.trim()) payload.code_postal = codePostal.value.trim();
+    }
     await session.register(payload);
     toast.add({ severity: 'success', summary: 'Compte créé', life: 2000 });
     router.replace('/');
@@ -112,9 +120,19 @@ async function submit() {
           <InputText id="tel" v-model="tel" required placeholder="+33 6 12 34 56 78" />
         </div>
 
-        <div v-if="role === 'user'" class="field">
-          <label for="adresse">Adresse de livraison</label>
-          <Textarea id="adresse" v-model="adresse" rows="2" required />
+        <div v-if="role === 'user'" class="grid">
+          <div class="field field-full">
+            <label for="adresse">Adresse (optionnel)</label>
+            <Textarea id="adresse" v-model="adresse" rows="2" auto-resize />
+          </div>
+          <div class="field">
+            <label for="ville">Ville (optionnel)</label>
+            <InputText id="ville" v-model="ville" placeholder="Rennes" />
+          </div>
+          <div class="field">
+            <label for="cp">Code postal (optionnel)</label>
+            <InputText id="cp" v-model="codePostal" placeholder="35000" />
+          </div>
         </div>
 
         <Button type="submit" label="Créer le compte" icon="pi pi-user-plus" :loading="pending" />
@@ -128,4 +146,5 @@ async function submit() {
 .form { display: flex; flex-direction: column; gap: 1rem; }
 .field { display: flex; flex-direction: column; gap: 0.3rem; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.field-full { grid-column: 1 / -1; }
 </style>

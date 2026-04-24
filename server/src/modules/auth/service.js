@@ -8,6 +8,16 @@ import { sendPasswordResetEmail } from './email.js';
 
 const ARGON2_OPTS = { type: argon2.argon2id, memoryCost: 19_456, timeCost: 2, parallelism: 1 };
 
+function buildClientAdresse(input) {
+  const adresseLibre = input.adresse?.trim();
+  const ville = input.ville?.trim();
+  const codePostal = input.code_postal?.trim();
+  const villeCp = [codePostal, ville].filter(Boolean).join(' ').trim();
+  if (adresseLibre && villeCp) return `${adresseLibre}, ${villeCp}`;
+  if (adresseLibre) return adresseLibre;
+  return villeCp;
+}
+
 export async function registerUser(input) {
   const existing = await query(
     'SELECT id FROM utilisateur WHERE email = $1 AND deleted_at IS NULL',
@@ -29,25 +39,28 @@ export async function registerUser(input) {
     const user = userResult.rows[0];
 
     if (input.role === 'user') {
+      const adresse = buildClientAdresse(input);
       await client.query(
-        `INSERT INTO profil_client (user_id, nom, prenom, tel, adresse)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [user.id, input.nom, input.prenom, input.tel, input.adresse],
+        `INSERT INTO profil_client (user_id, nom, prenom, tel, adresse, ville, code_postal)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [user.id, input.nom, input.prenom, input.tel, adresse, input.ville?.trim() || null, input.code_postal?.trim() || null],
       );
       // Géocodage best-effort : on n'échoue pas l'inscription si Nominatim ne répond pas.
-      try {
-        const coords = await geocodeAddress(input.adresse);
-        if (coords) {
-          await client.query(
-            `INSERT INTO adresse_geocodee (user_id, lat, lon, geom)
-             VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)`,
-            [user.id, coords.lat, coords.lon],
-          );
-        } else {
-          logger.info({ userId: user.id }, 'Géocodage indisponible pour cette adresse');
+      if (adresse) {
+        try {
+          const coords = await geocodeAddress(adresse);
+          if (coords) {
+            await client.query(
+              `INSERT INTO adresse_geocodee (user_id, lat, lon)
+               VALUES ($1, $2, $3)`,
+              [user.id, coords.lat, coords.lon],
+            );
+          } else {
+            logger.info({ userId: user.id }, 'Géocodage indisponible pour cette adresse');
+          }
+        } catch (err) {
+          logger.warn({ err: err.message, userId: user.id }, 'Géocodage : insertion échouée');
         }
-      } catch (err) {
-        logger.warn({ err: err.message, userId: user.id }, 'Géocodage : insertion échouée');
       }
     } else {
       await client.query(
@@ -89,7 +102,7 @@ export async function unregisterSelf(userId) {
   const { rows } = await query(
     `UPDATE utilisateur
      SET deleted_at = NOW(),
-         email = ('deleted-' || id::text || '@anon')::citext
+         email = 'deleted-' || id::text || '@anon'
      WHERE id = $1 AND deleted_at IS NULL
      RETURNING id`,
     [userId],
@@ -110,7 +123,9 @@ export async function getCurrentUser(userId) {
             COALESCE(pc.prenom, pp.prenom) AS prenom,
             COALESCE(pc.nom,    pp.nom)    AS nom,
             COALESCE(pc.tel,    pp.tel)    AS tel,
-            pc.adresse
+                 pc.adresse,
+                 pc.ville,
+                 pc.code_postal
      FROM utilisateur u
      LEFT JOIN profil_client     pc ON pc.user_id = u.id
      LEFT JOIN profil_producteur pp ON pp.user_id = u.id
@@ -128,8 +143,23 @@ export async function updateProfile(userId, input, role) {
     );
   } else {
     await query(
-      `UPDATE profil_client SET prenom = $2, nom = $3, tel = $4, adresse = COALESCE($5, adresse) WHERE user_id = $1`,
-      [userId, input.prenom, input.nom, input.tel, input.adresse ?? null],
+      `UPDATE profil_client
+       SET prenom = $2,
+           nom = $3,
+           tel = $4,
+           adresse = COALESCE($5, adresse),
+           ville = COALESCE($6, ville),
+           code_postal = COALESCE($7, code_postal)
+       WHERE user_id = $1`,
+      [
+        userId,
+        input.prenom,
+        input.nom,
+        input.tel,
+        input.adresse ?? null,
+        input.ville ?? null,
+        input.code_postal ?? null,
+      ],
     );
   }
 }

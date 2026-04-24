@@ -24,3 +24,10 @@ export const routeQuerySchema = z.object({
   to_lat: z.coerce.number().min(-90).max(90),
   to_lon: z.coerce.number().min(-180).max(180),
 });
+
+export const geocodeQuerySchema = z.object({
+  q: z.string().trim().min(1).max(160).optional(),
+  ville: z.string().trim().min(1).max(120).optional(),
+  code_postal: z.string().trim().regex(/^\d{5}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(10).default(5),
+});

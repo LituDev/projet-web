@@ -63,5 +63,16 @@ export const usePanierStore = defineStore('panier', {
       this.persist();
     },
     vider() { this.lignes = []; this.persist(); },
+    chargerDepuisListe(items) {
+      const results = [];
+      for (const item of items) {
+        const r = this.ajouter(
+          { id: item.produit_id, nom: item.nom, prix_cents: item.prix_cents, entreprise_nom: item.entreprise_nom ?? '', stock: item.stock },
+          item.quantite,
+        );
+        results.push({ nom: item.nom, quantiteDemandee: item.quantite, ...r });
+      }
+      return results;
+    },
   },
 });

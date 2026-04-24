@@ -15,9 +15,16 @@ const router = useRouter();
 const canUsePanier = computed(
   () => !session.user || session.user.role !== "seller",
 );
+const canUseListes = computed(
+  () => session.user && (session.user.role === "user" || session.user.role === "admin"),
+);
 const accountLabel = computed(() => {
   const prenom = session.user?.prenom?.trim();
   return prenom || "Mon compte";
+});
+const accountRoute = computed(() => {
+  if (session.user?.role === "seller") return "/seller/compte";
+  return "/app/compte";
 });
 
 onMounted(async () => {
@@ -98,8 +105,16 @@ async function logout() {
             badge-severity="contrast"
           />
         </RouterLink>
+        <RouterLink
+          v-if="canUseListes"
+          to="/app/liste-courses"
+          class="panier-link"
+          aria-label="Voir les listes de courses"
+        >
+          <Button icon="pi pi-bookmark" text />
+        </RouterLink>
         <template v-if="session.user">
-          <RouterLink to="/app/compte">
+          <RouterLink :to="accountRoute">
             <Button :label="accountLabel" icon="pi pi-user" text />
           </RouterLink>
           <Button

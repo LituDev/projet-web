@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../../db/pool.js';
-import { proximiteQuerySchema, itineraireSchema, routeQuerySchema } from './schemas.js';
+import { proximiteQuerySchema, itineraireSchema, routeQuerySchema, geocodeQuerySchema } from './schemas.js';
 import { optimiserItineraire } from './service.js';
 import { HttpError } from '../../middlewares/error.js';
 
@@ -35,10 +35,7 @@ router.get('/points-relais', async (req, res, next) => {
       const { lat, lon, rayon_m, limite } = proximiteQuerySchema.parse(req.query);
       const { rows } = await query(
         `SELECT id, nom, adresse, distance_m
-         FROM f_points_relais_proches(
-           ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-           $3, $4
-         )
+         FROM f_points_relais_proches($1, $2, $3, $4)
          ORDER BY distance_m ASC, id ASC`,
         [lat, lon, rayon_m, limite],
       );
@@ -86,6 +83,32 @@ router.get('/route', async (req, res, next) => {
     if (err.name === 'AbortError') return next(new HttpError(504, 'osrm_timeout', 'OSRM injoignable.'));
     next(err);
   }
+});
+
+// Géocodage via Nominatim (proxy pour éviter les restrictions CORS + User-Agent)
+router.get('/geocode', async (req, res, next) => {
+  try {
+    const { q, ville, code_postal, limit } = geocodeQuerySchema.parse(req.query);
+    const recherche = q ?? [code_postal, ville].filter(Boolean).join(' ').trim();
+    if (!recherche) {
+      throw new HttpError(400, 'missing_location', 'Ville ou code postal requis.');
+    }
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(recherche)}&format=json&limit=${limit}&accept-language=fr&countrycodes=fr&addressdetails=1`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'gumes-marketplace/1.0' } });
+    if (!r.ok) throw new HttpError(502, 'geocode_error', `Nominatim a répondu ${r.status}.`);
+    const data = await r.json();
+    if (!data.length) return res.json({ result: null, ambiguous: false, count: 0 });
+    if (data.length !== 1) {
+      return res.json({
+        result: null,
+        ambiguous: true,
+        count: data.length,
+        suggestions: data.slice(0, 5).map((d) => d.display_name),
+      });
+    }
+    const { lat, lon, display_name } = data[0];
+    res.json({ result: { lat: Number(lat), lon: Number(lon), display_name }, ambiguous: false, count: 1 });
+  } catch (err) { next(err); }
 });
 
 // Optimisation de trajet — nearest-neighbor + 2-opt côté serveur

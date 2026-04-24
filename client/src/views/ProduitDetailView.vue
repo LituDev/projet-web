@@ -6,6 +6,8 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Message from 'primevue/message';
 import InputNumber from 'primevue/inputnumber';
+import Popover from 'primevue/popover';
+import InputText from 'primevue/inputtext';
 import { useToast } from 'primevue/usetoast';
 import { api } from '../services/api.js';
 import { produitImageUrl } from '../services/images.js';
@@ -41,6 +43,55 @@ const formatPrix = (cents) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
 const canAjouterPanier = computed(() => session.user?.role !== 'seller');
+const isClient = computed(() => session.user?.role === 'user' || session.user?.role === 'admin');
+
+const listePopoverRef = ref(null);
+const listesDisponibles = ref([]);
+const listesChargees = ref(false);
+const listesChargement = ref(false);
+const nouveauNomListe = ref('');
+
+async function ouvrirPopoverListe(event) {
+  listePopoverRef.value.toggle(event);
+  if (!listesChargees.value && !listesChargement.value) {
+    listesChargement.value = true;
+    try {
+      const res = await api.get('/liste-courses');
+      listesDisponibles.value = res.data;
+      listesChargees.value = true;
+    } catch (e) {
+      toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+    } finally {
+      listesChargement.value = false;
+    }
+  }
+}
+
+async function ajouterAListe(listeId) {
+  try {
+    await api.post(`/liste-courses/${listeId}/items`, { produit_id: produit.value.id, quantite: 1 });
+    toast.add({ severity: 'success', summary: 'Ajouté à la liste', detail: produit.value.nom, life: 2000 });
+    listePopoverRef.value.hide();
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+  }
+}
+
+async function creerEtAjouter() {
+  const nom = nouveauNomListe.value.trim();
+  if (!nom) {
+    toast.add({ severity: 'warn', summary: 'Nom requis', detail: 'Choisissez un nom pour la nouvelle liste.', life: 2500 });
+    return;
+  }
+  try {
+    const { liste } = await api.post('/liste-courses', { nom });
+    listesDisponibles.value = [...listesDisponibles.value, liste];
+    nouveauNomListe.value = '';
+    await ajouterAListe(liste.id);
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+  }
+}
 
 async function charger() {
   loading.value = true;
@@ -151,9 +202,35 @@ onMounted(charger);
           :severity="favoris.has(produit.id) ? 'danger' : 'secondary'"
           outlined
           @click="toggleFavori" />
+        <Button
+          v-if="isClient"
+          label="Ajouter à une liste de courses"
+          icon="pi pi-bookmark"
+          severity="secondary"
+          outlined
+          @click="ouvrirPopoverListe" />
       </template>
     </Card>
   </div>
+
+  <Popover ref="listePopoverRef">
+    <div class="liste-pop">
+      <p class="liste-pop-title">Choisir une liste</p>
+      <p v-if="listesChargement" class="liste-pop-hint">Chargement…</p>
+      <template v-else>
+        <p v-if="listesDisponibles.length === 0" class="liste-pop-hint">Aucune liste existante.</p>
+        <button v-for="l in listesDisponibles" :key="l.id" class="liste-pop-item" @click="ajouterAListe(l.id)">
+          <i class="pi pi-list" /> {{ l.nom }}
+        </button>
+        <div class="liste-pop-create">
+          <InputText v-model="nouveauNomListe" placeholder="Nom de la nouvelle liste" />
+        </div>
+        <button class="liste-pop-item liste-pop-new" @click="creerEtAjouter">
+          <i class="pi pi-plus" /> Créer et ajouter
+        </button>
+      </template>
+    </div>
+  </Popover>
 </template>
 
 <style scoped>
@@ -180,4 +257,17 @@ onMounted(charger);
 .achat-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
 .stock-info { display: block; margin-bottom: 1rem; color: #166534; }
 .stock-info.out { color: #b91c1c; }
+.liste-pop { display: flex; flex-direction: column; gap: .25rem; min-width: 14rem; }
+.liste-pop-title { font-weight: 600; font-size: .9rem; margin: 0 0 .4rem; }
+.liste-pop-hint { font-size: .9rem; color: var(--p-text-muted-color); margin: 0 0 .25rem; }
+.liste-pop-item {
+  display: flex; align-items: center; gap: .5rem;
+  background: none; border: none; cursor: pointer;
+  padding: .45rem .5rem; border-radius: .35rem;
+  font-size: .9rem; text-align: left; width: 100%;
+  transition: background-color .15s;
+}
+.liste-pop-item:hover { background: color-mix(in srgb, #0f172a 8%, transparent); }
+.liste-pop-new { color: var(--p-primary-color); }
+.liste-pop-create { margin-top: .35rem; }
 </style>

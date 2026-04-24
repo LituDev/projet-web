@@ -13,7 +13,7 @@ export const createCommandeSchema = z.discriminatedUnion('mode_livraison', [
   z.object({
     mode_livraison: z.literal('pickup_store'),
     lignes: z.array(ligne).min(1),
-    lieu_id: z.uuid(),
+    lieu_ids: z.array(z.uuid()).min(1).max(20),
   }),
   z.object({
     mode_livraison: z.literal('pickup_relay'),
@@ -24,6 +24,7 @@ export const createCommandeSchema = z.discriminatedUnion('mode_livraison', [
     mode_livraison: z.literal('home_delivery'),
     lignes: z.array(ligne).min(1),
     adresse: z.string().min(5).max(250),
+    code_postal: z.string().regex(/^\d{5}$/).optional(),
     lat: z.number().min(-90).max(90),
     lon: z.number().min(-180).max(180),
   }),

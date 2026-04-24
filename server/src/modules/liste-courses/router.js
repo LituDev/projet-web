@@ -27,7 +27,7 @@ router.get('/:id', requireRole('user', 'admin'), async (req, res, next) => {
     await assertListeOwner(req.params.id, req.session.user.id);
     const items = await query(
       `SELECT ic.produit_id, ic.quantite,
-              p.nom, p.prix_cents, p.entreprise_id,
+              p.nom, p.prix_cents, p.stock, p.entreprise_id, e.nom AS entreprise_nom,
               (SELECT l.id FROM produit_lieu_vente plv JOIN lieu_de_vente l ON l.id = plv.lieu_id
                WHERE plv.produit_id = p.id LIMIT 1) AS lieu_id,
               (SELECT l.nom FROM produit_lieu_vente plv JOIN lieu_de_vente l ON l.id = plv.lieu_id
@@ -36,7 +36,9 @@ router.get('/:id', requireRole('user', 'admin'), async (req, res, next) => {
                WHERE plv.produit_id = p.id LIMIT 1) AS lieu_lat,
               (SELECT l.lon FROM produit_lieu_vente plv JOIN lieu_de_vente l ON l.id = plv.lieu_id
                WHERE plv.produit_id = p.id LIMIT 1) AS lieu_lon
-       FROM item_liste_courses ic JOIN produit p ON p.id = ic.produit_id
+       FROM item_liste_courses ic
+       JOIN produit p ON p.id = ic.produit_id
+       JOIN entreprise e ON e.id = p.entreprise_id
        WHERE ic.liste_id = $1
        ORDER BY p.nom`,
       [req.params.id],
@@ -57,6 +59,19 @@ router.post('/', requireRole('user', 'admin'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+const renameSchema = z.object({ nom: z.string().min(1).max(120) });
+router.patch('/:id', requireRole('user', 'admin'), async (req, res, next) => {
+  try {
+    await assertListeOwner(req.params.id, req.session.user.id);
+    const { nom } = renameSchema.parse(req.body);
+    const { rows } = await query(
+      'UPDATE liste_courses SET nom = $1 WHERE id = $2 RETURNING id, nom',
+      [nom, req.params.id],
+    );
+    res.json({ liste: rows[0] });
+  } catch (err) { next(err); }
+});
+
 const itemSchema = z.object({
   produit_id: z.uuid(),
   quantite: z.number().int().min(1).max(99).default(1),
@@ -73,6 +88,19 @@ router.post('/:id/items', requireRole('user', 'admin'), async (req, res, next) =
       [req.params.id, body.produit_id, body.quantite],
     );
     res.status(201).json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+const updateItemSchema = z.object({ quantite: z.number().int().min(1).max(99) });
+router.patch('/:id/items/:produit_id', requireRole('user', 'admin'), async (req, res, next) => {
+  try {
+    await assertListeOwner(req.params.id, req.session.user.id);
+    const { quantite } = updateItemSchema.parse(req.body);
+    await query(
+      'UPDATE item_liste_courses SET quantite = $1 WHERE liste_id = $2 AND produit_id = $3',
+      [quantite, req.params.id, req.params.produit_id],
+    );
+    res.status(204).end();
   } catch (err) { next(err); }
 });
 

@@ -1,18 +1,61 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import Card from 'primevue/card';
 import Button from 'primevue/button';
+import Select from 'primevue/select';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import InputNumber from 'primevue/inputnumber';
 import Message from 'primevue/message';
+import { useToast } from 'primevue/usetoast';
 import { usePanierStore } from '../stores/panier.js';
 import { useSessionStore } from '../stores/session.js';
+import { api } from '../services/api.js';
 
 const panier = usePanierStore();
 const session = useSessionStore();
 const router = useRouter();
+const toast = useToast();
+
+const listes = ref([]);
+const listeSelectionnee = ref(null);
+const chargementListe = ref(false);
+
+onMounted(async () => {
+  if (session.user && session.user.role !== 'seller') {
+    try {
+      const res = await api.get('/liste-courses');
+      listes.value = res.data;
+    } catch {
+      // Non bloquant: le panier reste utilisable même si les listes échouent à charger.
+    }
+  }
+});
+
+async function chargerListe() {
+  if (!listeSelectionnee.value) return;
+  chargementListe.value = true;
+  try {
+    const res = await api.get(`/liste-courses/${listeSelectionnee.value}`);
+    const results = panier.chargerDepuisListe(res.items);
+    const limites = results.filter((r) => r.quantiteAjoutee < r.quantiteDemandee);
+    if (limites.length > 0) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Stock limité',
+        detail: limites.map((r) => `${r.nom} : ${r.quantiteAjoutee}/${r.quantiteDemandee}`).join(', '),
+        life: 5000,
+      });
+    } else {
+      toast.add({ severity: 'success', summary: 'Panier chargé', detail: `${results.length} produit(s) ajouté(s)`, life: 2500 });
+    }
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+  } finally {
+    chargementListe.value = false;
+  }
+}
 
 const formatPrix = (cents) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
@@ -31,9 +74,20 @@ function passerCommande() {
 <template>
   <h2>Mon panier</h2>
 
-  <Message v-if="panier.lignes.length === 0" severity="info" :closable="false">
-    Votre panier est vide. <RouterLink to="/catalogue">Explorer le catalogue</RouterLink>.
-  </Message>
+  <template v-if="panier.lignes.length === 0">
+    <Message severity="info" :closable="false">
+      Votre panier est vide. <RouterLink to="/catalogue">Explorer le catalogue</RouterLink>.
+    </Message>
+    <Card v-if="session.user && session.user.role !== 'seller' && listes.length > 0" class="liste-card">
+      <template #title>Charger une liste de courses</template>
+      <template #content>
+        <div class="liste-form">
+          <Select v-model="listeSelectionnee" :options="listes" option-label="nom" option-value="id" placeholder="Choisir une liste…" />
+          <Button label="Charger dans le panier" icon="pi pi-shopping-cart" :disabled="!listeSelectionnee" :loading="chargementListe" @click="chargerListe" />
+        </div>
+      </template>
+    </Card>
+  </template>
 
   <Card v-else>
     <template #content>
@@ -93,4 +147,6 @@ function passerCommande() {
   margin-top: .3rem;
   color: var(--p-text-muted-color);
 }
+.liste-card { margin-top: 1rem; }
+.liste-form { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
 </style>

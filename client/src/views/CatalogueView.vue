@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import DataView from 'primevue/dataview';
 import InputText from 'primevue/inputtext';
@@ -8,6 +8,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Paginator from 'primevue/paginator';
 import ToggleButton from 'primevue/togglebutton';
+import Popover from 'primevue/popover';
 import { useToast } from 'primevue/usetoast';
 import { api } from '../services/api.js';
 import { produitImageUrl } from '../services/images.js';
@@ -44,8 +45,14 @@ async function toggleFavori(p) {
 const filtres = reactive({ q: '', nature: null, bio: null, tri: 'nom_asc', favoris_only: false });
 const filtreEntrepriseId = ref('');
 const filtreEntrepriseNom = ref('');
+const entreprises = ref([]);
 const produits = ref([]);
 const total = ref(0);
+const listePopoverRef = ref(null);
+const produitListeActif = ref(null);
+const listesDisponibles = ref([]);
+const listesChargees = ref(false);
+const listesChargement = ref(false);
 const limit = ref(24);
 const offset = ref(0);
 const loading = ref(false);
@@ -98,16 +105,6 @@ async function charger() {
   }
 }
 
-const hasEntrepriseFilter = computed(() => Boolean(filtreEntrepriseId.value));
-
-function clearEntrepriseFilter() {
-  filtreEntrepriseId.value = '';
-  filtreEntrepriseNom.value = '';
-  const nextQuery = { ...route.query };
-  delete nextQuery.entreprise_id;
-  delete nextQuery.entreprise_nom;
-  router.replace({ query: nextQuery });
-}
 
 let debounce;
 watch(filtres, () => {
@@ -115,7 +112,12 @@ watch(filtres, () => {
   debounce = setTimeout(() => { offset.value = 0; charger(); }, 250);
 }, { deep: true });
 
-watch(filtreEntrepriseId, () => {
+watch(filtreEntrepriseId, (id) => {
+  filtreEntrepriseNom.value = entreprises.value.find(e => e.id === id)?.nom ?? '';
+  const nextQuery = { ...route.query };
+  if (id) { nextQuery.entreprise_id = id; nextQuery.entreprise_nom = filtreEntrepriseNom.value; }
+  else { delete nextQuery.entreprise_id; delete nextQuery.entreprise_nom; }
+  router.replace({ query: nextQuery });
   offset.value = 0;
   charger();
 });
@@ -151,17 +153,65 @@ function canAjouterPanier() {
   return session.user?.role !== 'seller';
 }
 
-onMounted(() => {
-  if (typeof route.query.q === 'string') {
-    filtres.q = route.query.q;
+async function ouvrirPopoverListe(event, produit) {
+  if (!session.user) {
+    toast.add({ severity: 'warn', summary: 'Connexion requise', detail: 'Connectez-vous pour gérer vos listes.', life: 3000 });
+    return;
   }
-  if (typeof route.query.entreprise_id === 'string') {
-    filtreEntrepriseId.value = route.query.entreprise_id;
+  produitListeActif.value = produit;
+  listePopoverRef.value.toggle(event);
+  if (!listesChargees.value && !listesChargement.value) {
+    listesChargement.value = true;
+    try {
+      const res = await api.get('/liste-courses');
+      listesDisponibles.value = res.data;
+      listesChargees.value = true;
+    } catch (e) {
+      toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+    } finally {
+      listesChargement.value = false;
+    }
   }
-  if (typeof route.query.entreprise_nom === 'string') {
-    filtreEntrepriseNom.value = route.query.entreprise_nom;
+}
+
+async function ajouterAListe(listeId) {
+  const p = produitListeActif.value;
+  if (!p) return;
+  try {
+    await api.post(`/liste-courses/${listeId}/items`, { produit_id: p.id, quantite: 1 });
+    toast.add({ severity: 'success', summary: 'Ajouté à la liste', detail: p.nom, life: 2000 });
+    listePopoverRef.value.hide();
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
   }
-  charger();
+}
+
+async function creerEtAjouter() {
+  try {
+    const { liste } = await api.post('/liste-courses', { nom: `Liste ${new Date().toLocaleDateString('fr-FR')}` });
+    listesDisponibles.value = [...listesDisponibles.value, liste];
+    await ajouterAListe(liste.id);
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+  }
+}
+
+onMounted(async () => {
+  if (typeof route.query.q === 'string') filtres.q = route.query.q;
+  if (typeof route.query.entreprise_id === 'string') filtreEntrepriseId.value = route.query.entreprise_id;
+  if (typeof route.query.entreprise_nom === 'string') filtreEntrepriseNom.value = route.query.entreprise_nom;
+  await charger();
+  try {
+    const ents = await api.get('/entreprises');
+    entreprises.value = ents.data;
+  } catch {
+    toast.add({
+      severity: 'warn',
+      summary: 'Filtre fermes indisponible',
+      detail: 'Impossible de charger les fermes pour le moment.',
+      life: 3000,
+    });
+  }
 });
 </script>
 
@@ -170,17 +220,10 @@ onMounted(() => {
 
   <div class="filtres">
     <InputText v-model="filtres.q" placeholder="Produit, producteur ou ferme…" class="search" />
+    <Select v-model="filtreEntrepriseId" :options="entreprises" option-label="nom" option-value="id" placeholder="Toutes les fermes" :show-clear="true" filter filter-placeholder="Rechercher une ferme…" />
     <Select v-model="filtres.nature" :options="natures" option-label="label" option-value="value" placeholder="Nature" />
     <Select v-model="filtres.bio" :options="bios" option-label="label" option-value="value" placeholder="Bio" />
     <Select v-model="filtres.tri" :options="tris" option-label="label" option-value="value" placeholder="Trier par" />
-    <Button
-      v-if="hasEntrepriseFilter"
-      :label="`Ferme: ${filtreEntrepriseNom || 'sélectionnée'}`"
-      icon="pi pi-times"
-      severity="contrast"
-      outlined
-      @click="clearEntrepriseFilter"
-    />
     <ToggleButton
       v-if="session.user && session.user.role !== 'seller'"
       v-model="filtres.favoris_only"
@@ -215,12 +258,19 @@ onMounted(() => {
                 text rounded
                 :aria-label="favoris.has(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                 @click="toggleFavori(p)" />
+              <Button
+                v-if="session.user?.role !== 'seller'"
+                icon="pi pi-bookmark"
+                severity="secondary"
+                text rounded
+                aria-label="Ajouter à une liste de courses"
+                @click="(e) => ouvrirPopoverListe(e, p)" />
             </div>
           </header>
           <p class="desc">{{ p.description }}</p>
           <p class="meta">
             <i class="pi pi-user" /> {{ p.producteur_nom }}<br>
-            <i class="pi pi-shop" /> {{ p.entreprise_nom }}
+            <i class="pi pi-shop" /> <RouterLink :to="`/entreprises/${p.entreprise_id}`">{{ p.entreprise_nom }}</RouterLink>
           </p>
           <p class="stock" :class="{ low: p.stock > 0 && p.stock < 5, out: p.stock === 0 }">
             <i class="pi pi-box" />
@@ -243,6 +293,21 @@ onMounted(() => {
   </DataView>
 
   <Paginator v-if="total > limit" :rows="limit" :totalRecords="total" :first="offset" @page="onPage" />
+
+  <Popover ref="listePopoverRef">
+    <div class="liste-pop">
+      <p class="liste-pop-title">Ajouter à une liste</p>
+      <p v-if="listesChargement" class="liste-pop-hint">Chargement…</p>
+      <template v-else>
+        <button v-for="l in listesDisponibles" :key="l.id" class="liste-pop-item" @click="ajouterAListe(l.id)">
+          <i class="pi pi-list" /> {{ l.nom }}
+        </button>
+        <button class="liste-pop-item liste-pop-new" @click="creerEtAjouter">
+          <i class="pi pi-plus" /> Nouvelle liste
+        </button>
+      </template>
+    </div>
+  </Popover>
 </template>
 
 <style scoped>
@@ -304,4 +369,16 @@ onMounted(() => {
 .card footer { display: flex; justify-content: space-between; align-items: center; }
 .prix { font-weight: 700; font-size: 1.1rem; color: var(--p-primary-color); }
 .empty { text-align: center; padding: 3rem; color: var(--p-text-muted-color); }
+.liste-pop { display: flex; flex-direction: column; gap: .25rem; min-width: 14rem; }
+.liste-pop-title { font-weight: 600; font-size: .9rem; margin: 0 0 .4rem; }
+.liste-pop-hint { font-size: .9rem; color: var(--p-text-muted-color); margin: 0; }
+.liste-pop-item {
+  display: flex; align-items: center; gap: .5rem;
+  background: none; border: none; cursor: pointer;
+  padding: .45rem .5rem; border-radius: .35rem;
+  font-size: .9rem; text-align: left; width: 100%;
+  transition: background-color .15s;
+}
+.liste-pop-item:hover { background: color-mix(in srgb, #0f172a 8%, transparent); }
+.liste-pop-new { color: var(--p-primary-color); }
 </style>

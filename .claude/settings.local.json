@@ -21,7 +21,13 @@
       "PowerShell(docker compose ps)",
       "Bash(xargs grep *)",
       "Bash(npm install *)",
-      "Bash(npm list *)"
+      "Bash(npm list *)",
+      "Bash(npm test *)",
+      "Bash(git fetch *)",
+      "Bash(git stash *)",
+      "Bash(git merge *)",
+      "Bash(node --test --test-concurrency=1 tests/run.test.js)",
+      "Bash(dotenv -e .env.test -- node --test --test-concurrency=1 server/tests/run.test.js)"
     ]
   }
 }

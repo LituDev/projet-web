@@ -20,6 +20,8 @@ const prenom = ref('');
 const nom = ref('');
 const tel = ref('');
 const adresse = ref('');
+const ville = ref('');
+const codePostal = ref('');
 const profilePending = ref(false);
 const profileError = ref('');
 
@@ -36,6 +38,8 @@ watch(
     nom.value = u.nom ?? '';
     tel.value = u.tel ?? '';
     adresse.value = u.adresse ?? '';
+    ville.value = u.ville ?? '';
+    codePostal.value = u.code_postal ?? '';
   },
   { immediate: true },
 );
@@ -44,8 +48,17 @@ async function saveProfile() {
   profileError.value = '';
   profilePending.value = true;
   try {
-    const body = { prenom: prenom.value, nom: nom.value, tel: tel.value };
-    if (session.user?.role === 'user') body.adresse = adresse.value;
+    const body = {
+      prenom: prenom.value.trim(),
+      nom: nom.value.trim(),
+      tel: tel.value.trim(),
+    };
+    if (session.user?.role === 'user') {
+      body.adresse = adresse.value.trim();
+      body.ville = ville.value.trim();
+      const cp = codePostal.value.trim();
+      if (cp) body.code_postal = cp;
+    }
     await api.patch('/auth/me/profile', body);
     await session.fetchMe();
     toast.add({ severity: 'success', summary: 'Profil mis à jour', life: 2500 });
@@ -120,6 +133,16 @@ function supprimerCompte() {
         <div v-if="session.user.role === 'user'" class="field">
           <label for="adresse">Adresse</label>
           <Textarea id="adresse" v-model="adresse" rows="2" auto-resize />
+        </div>
+        <div v-if="session.user.role === 'user'" class="row">
+          <div class="field">
+            <label for="ville">Ville</label>
+            <InputText id="ville" v-model="ville" placeholder="Rennes" />
+          </div>
+          <div class="field">
+            <label for="code-postal">Code postal</label>
+            <InputText id="code-postal" v-model="codePostal" placeholder="35000" />
+          </div>
         </div>
         <Button type="submit" label="Enregistrer" icon="pi pi-check" :loading="profilePending" />
       </form>

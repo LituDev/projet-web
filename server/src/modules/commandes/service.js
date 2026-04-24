@@ -2,6 +2,19 @@ import { query, withTransaction } from '../../db/pool.js';
 import { HttpError } from '../../middlewares/error.js';
 
 const MODES = ['pickup_store', 'pickup_relay', 'home_delivery'];
+let pickupStoreMultiLieuxCapable;
+
+async function supportsMultiPickupStore(client) {
+  if (typeof pickupStoreMultiLieuxCapable === 'boolean') return pickupStoreMultiLieuxCapable;
+  const { rows } = await client.query(
+    `SELECT cardinality(conkey)::INT AS key_len
+     FROM pg_constraint
+     WHERE conrelid = 'commande_pickup_store'::regclass
+       AND contype = 'p'`,
+  );
+  pickupStoreMultiLieuxCapable = (rows[0]?.key_len ?? 1) > 1;
+  return pickupStoreMultiLieuxCapable;
+}
 
 async function loadProduits(client, produitIds) {
   const { rows } = await client.query(
@@ -28,7 +41,6 @@ export async function computeQuote(lignes) {
 
   let totalProduits = 0;
   let allShippable = true;
-  const entreprises = new Set();
 
   const detailLignes = lignes.map((l) => {
     const p = byId.get(l.produit_id);
@@ -37,19 +49,12 @@ export async function computeQuote(lignes) {
     if (p.stock < l.quantite) throw new HttpError(409, 'stock_insufficient', `Stock insuffisant pour ${p.nom}.`);
     totalProduits += p.prix_cents * l.quantite;
     if (!p.shippable) allShippable = false;
-    entreprises.add(p.entreprise_id);
-    return { produit_id: p.id, nom: p.nom, prix_cents: p.prix_cents, quantite: l.quantite };
+    return { produit_id: p.id, nom: p.nom, prix_cents: p.prix_cents, quantite: l.quantite, entreprise_id: p.entreprise_id };
   });
-
-  const memeEntreprise = entreprises.size === 1;
 
   const modes = MODES.map((mode) => {
     let disponible = true;
     let motif;
-    if (mode === 'pickup_store' && !memeEntreprise) {
-      disponible = false;
-      motif = 'Pickup en lieu de vente limité à un seul producteur par commande.';
-    }
     if ((mode === 'pickup_relay' || mode === 'home_delivery') && !allShippable) {
       disponible = false;
       motif = 'Certains produits ne peuvent pas être expédiés.';
@@ -98,21 +103,36 @@ export async function createCommande(session, body) {
     }
 
     // Vérification éligibilité du mode choisi
-    if (body.mode_livraison === 'pickup_store' && entreprises.size > 1) {
-      throw new HttpError(409, 'mode_invalid', 'Pickup en lieu de vente : un seul producteur par commande.');
-    }
     if ((body.mode_livraison === 'pickup_relay' || body.mode_livraison === 'home_delivery') && !allShippable) {
       throw new HttpError(409, 'mode_invalid', 'Des produits ne sont pas expédiables.');
     }
     if (body.mode_livraison === 'pickup_store') {
-      // Le lieu doit appartenir à l'entreprise du panier
-      const entrepriseId = [...entreprises][0];
-      const { rowCount } = await client.query(
-        'SELECT 1 FROM lieu_de_vente WHERE id = $1 AND entreprise_id = $2',
-        [body.lieu_id, entrepriseId],
-      );
-      if (rowCount === 0) {
-        throw new HttpError(409, 'lieu_invalid', "Ce lieu n'appartient pas au producteur du panier.");
+      const lieuIds = [...new Set(body.lieu_ids)];
+      if (lieuIds.length > 1 && !(await supportsMultiPickupStore(client))) {
+        throw new HttpError(
+          409,
+          'pickup_store_schema_outdated',
+          'Le serveur ne supporte pas encore plusieurs lieux de retrait. Exécutez la migration 1003.',
+        );
+      }
+      const entrepriseIds = [...entreprises];
+      const entreprisesCouvertes = new Set();
+      for (const lieuId of lieuIds) {
+        const { rows } = await client.query(
+          'SELECT entreprise_id FROM lieu_de_vente WHERE id = $1 AND entreprise_id = ANY($2::uuid[])',
+          [lieuId, entrepriseIds],
+        );
+        if (rows.length === 0) {
+          throw new HttpError(409, 'lieu_invalid', "Un lieu de retrait n'appartient pas aux producteurs du panier.");
+        }
+        entreprisesCouvertes.add(rows[0].entreprise_id);
+      }
+      if (entreprisesCouvertes.size !== entrepriseIds.length) {
+        throw new HttpError(
+          409,
+          'lieu_incomplete',
+          'Sélectionnez un lieu de retrait pour chaque producteur du panier.',
+        );
       }
     }
 
@@ -137,20 +157,26 @@ export async function createCommande(session, body) {
     }
 
     if (body.mode_livraison === 'pickup_store') {
-      await client.query(
-        `INSERT INTO commande_pickup_store (commande_id, lieu_id) VALUES ($1, $2)`,
-        [commandeId, body.lieu_id],
-      );
+      const lieuIds = [...new Set(body.lieu_ids)];
+      for (const lieuId of lieuIds) {
+        await client.query(
+          `INSERT INTO commande_pickup_store (commande_id, lieu_id) VALUES ($1, $2)`,
+          [commandeId, lieuId],
+        );
+      }
     } else if (body.mode_livraison === 'pickup_relay') {
       await client.query(
         `INSERT INTO commande_pickup_relay (commande_id, relais_id) VALUES ($1, $2)`,
         [commandeId, body.relais_id],
       );
     } else {
+      const adresseLivraison = body.code_postal
+        ? `${body.adresse}, ${body.code_postal}`
+        : body.adresse;
       await client.query(
-        `INSERT INTO commande_home_delivery (commande_id, adresse, lat, lon, geom)
-         VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography)`,
-        [commandeId, body.adresse, body.lat, body.lon],
+        `INSERT INTO commande_home_delivery (commande_id, adresse, lat, lon)
+         VALUES ($1, $2, $3, $4)`,
+        [commandeId, adresseLivraison, body.lat, body.lon],
       );
     }
 
