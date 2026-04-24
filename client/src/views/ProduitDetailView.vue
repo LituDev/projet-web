@@ -255,7 +255,71 @@ onMounted(charger);
           @click="ouvrirPopoverListe" />
       </template>
     </Card>
+
+    <Card class="avis-section">
+      <template #title>
+        <div class="avis-header">
+          <h2>Avis</h2>
+          <div class="rating-wrap">
+            <Rating :modelValue="Number(avisStats.moyenne) || 0" :cancel="false" readonly />
+            <strong>{{ (Number(avisStats.moyenne) || 0).toFixed(2) }}/5</strong>
+            <small>({{ avisStats.nb_avis }} avis)</small>
+          </div>
+        </div>
+      </template>
+      <template #content>
+        <div v-if="isClient" class="avis-form">
+          <h3>{{ monAvis ? 'Modifier mon avis' : 'Laisser un avis' }}</h3>
+          <Rating v-model="note" :cancel="false" />
+          <Textarea v-model="commentaire" rows="3" placeholder="Votre commentaire (optionnel)" />
+          <Button
+            :label="monAvis ? 'Mettre à jour' : 'Publier'"
+            icon="pi pi-send"
+            :loading="postingAvis"
+            @click="publierAvis" />
+        </div>
+        <Message v-else-if="session.user?.role === 'seller'" severity="info" :closable="false">
+          Les producteurs ne peuvent pas publier d'avis.
+        </Message>
+        <Message v-else severity="info" :closable="false">
+          Connectez-vous pour laisser un avis.
+        </Message>
+
+        <p v-if="avis.length === 0" class="muted">Pas encore d'avis pour ce produit.</p>
+        <div v-else class="avis-list">
+          <article v-for="a in avis" :key="a.id" class="avis-card">
+            <div class="avis-top">
+              <strong>{{ a.auteur }}</strong>
+              <Rating :modelValue="a.note" :cancel="false" readonly />
+            </div>
+            <p class="muted avis-date">{{ new Date(a.created_at).toLocaleDateString('fr-FR') }}</p>
+            <p v-if="a.commentaire">{{ a.commentaire }}</p>
+          </article>
+        </div>
+      </template>
+    </Card>
   </div>
+
+  <Popover ref="listePopoverRef">
+    <div class="liste-pop">
+      <p class="liste-pop-title">Ajouter à une liste</p>
+      <p v-if="listesChargement" class="liste-pop-hint">Chargement…</p>
+      <template v-else>
+        <button
+          v-for="l in listesDisponibles"
+          :key="l.id"
+          class="liste-pop-item"
+          @click="ajouterAListe(l.id)">
+          <i class="pi pi-list" /> {{ l.nom }}
+        </button>
+        <p v-if="!listesDisponibles.length" class="liste-pop-hint">Aucune liste pour le moment.</p>
+        <div class="liste-pop-new-row">
+          <InputText v-model="nouveauNomListe" placeholder="Nouvelle liste…" @keyup.enter="creerEtAjouter" />
+          <Button icon="pi pi-plus" severity="secondary" @click="creerEtAjouter" aria-label="Créer et ajouter" />
+        </div>
+      </template>
+    </div>
+  </Popover>
 </template>
 
 <style scoped>
@@ -282,4 +346,30 @@ onMounted(charger);
 .achat-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
 .stock-info { display: block; margin-bottom: 1rem; color: #166534; }
 .stock-info.out { color: #b91c1c; }
+.liste-pop { display: flex; flex-direction: column; gap: .25rem; min-width: 14rem; }
+.liste-pop-title { font-weight: 600; font-size: .9rem; margin: 0 0 .4rem; }
+.liste-pop-hint { font-size: .9rem; color: var(--p-text-muted-color); margin: 0; }
+.liste-pop-item {
+  display: flex; align-items: center; gap: .5rem;
+  background: none; border: none; cursor: pointer;
+  padding: .45rem .5rem; border-radius: .35rem;
+  font-size: .9rem; text-align: left; width: 100%;
+  transition: background-color .15s;
+}
+.liste-pop-item:hover { background: color-mix(in srgb, #0f172a 8%, transparent); }
+.liste-pop-new-row { display: flex; gap: .35rem; margin-top: .4rem; }
+.liste-pop-new-row :deep(.p-inputtext) { flex: 1; min-width: 0; }
+
+.avis-section { grid-column: 1 / -1; }
+.avis-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.avis-header h2 { margin: 0; font-size: 1.4rem; }
+.rating-wrap { display: flex; align-items: center; gap: .5rem; }
+.avis-form { display: flex; flex-direction: column; gap: .6rem; align-items: flex-start; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--p-content-border-color); }
+.avis-form h3 { margin: 0; font-size: 1rem; }
+.avis-form :deep(.p-textarea) { width: 100%; }
+.avis-list { display: grid; gap: .75rem; }
+.avis-card { border: 1px solid var(--p-content-border-color); border-radius: .5rem; padding: .75rem; }
+.avis-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.avis-date { font-size: .85rem; margin: .25rem 0; }
+.muted { color: var(--p-text-muted-color); }
 </style>

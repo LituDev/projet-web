@@ -154,7 +154,7 @@ function supprimerCompte() {
     <template #content>
       <p class="hint">Un lien de réinitialisation sera envoyé à votre adresse email.</p>
       <Message v-if="resetSent" severity="success" :closable="false">
-        Lien envoyé ! Vérifiez votre boîte mail (ou la console serveur en mode développement).
+        Lien envoyé ! Vérifiez votre boîte mail
       </Message>
       <Button v-else label="Changer mon mot de passe" icon="pi pi-envelope" outlined :loading="resetPending" @click="sendResetLink" />
     </template>

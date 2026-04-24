@@ -24,9 +24,11 @@ router.get('/produits/:produitId', async (req, res, next) => {
 
     const rows = await query(
       `SELECT a.id, a.produit_id, a.client_id, a.note, a.commentaire, a.created_at, a.updated_at,
-              (pc.prenom || ' ' || pc.nom) AS auteur
+              COALESCE(pc.prenom || ' ' || pc.nom,
+                       CASE WHEN u.role = 'admin' THEN 'Administrateur' ELSE split_part(u.email, '@', 1) END) AS auteur
        FROM avis_produit a
-       JOIN profil_client pc ON pc.user_id = a.client_id
+       JOIN utilisateur u ON u.id = a.client_id
+       LEFT JOIN profil_client pc ON pc.user_id = a.client_id
        WHERE a.produit_id = $1
        ORDER BY a.created_at DESC
        LIMIT $2 OFFSET $3`,
