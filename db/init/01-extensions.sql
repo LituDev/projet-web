@@ -1,15 +1,10 @@
--- Exécuté une seule fois au premier démarrage du conteneur PostgreSQL.
--- (Le dossier /docker-entrypoint-initdb.d n'est lu que si le volume de données est vide.)
+-- Exécuté une seule fois au premier démarrage du conteneur PostgreSQL
+-- (le dossier /docker-entrypoint-initdb.d n'est lu que si le volume de données
+-- est vide). Ce fichier est conservé à titre d'ancre pour d'éventuelles
+-- extensions futures, mais le schéma métier n'en réclame aucune :
+--   • gen_random_uuid() : core PostgreSQL >= 13
+--   • emails case-insensitive : contrainte CHECK + lowercasing applicatif
+--   • proximité géographique : Haversine en SQL pur (cf. f_points_relais_proches)
 --
--- Active les extensions requises. Les migrations node-pg-migrate prennent ensuite le relais
--- pour le schéma métier (tables, vues, fonctions).
-
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- pour gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS citext;     -- email case-insensitive
-
--- Petit garde-fou : log la version PostGIS à l'initialisation.
-DO $$
-BEGIN
-  RAISE NOTICE 'PostGIS version: %', PostGIS_Version();
-END $$;
+-- Toute la suite (tables, vues, fonctions) est posée par les migrations
+-- node-pg-migrate dans db/migrations/.

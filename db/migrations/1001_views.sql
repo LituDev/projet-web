@@ -49,7 +49,8 @@ SELECT
   pay.statut  AS paiement_statut,
   pay.methode AS paiement_methode,
   COALESCE(lv.adresse, pr.adresse, hd.adresse) AS livraison_adresse,
-  COALESCE(lv.geom, pr.geom, hd.geom)          AS livraison_geom
+  COALESCE(lv.lat, pr.lat, hd.lat)             AS livraison_lat,
+  COALESCE(lv.lon, pr.lon, hd.lon)             AS livraison_lon
 FROM commande c
 LEFT JOIN paiement               pay ON pay.commande_id = c.id
 LEFT JOIN commande_pickup_store  cps ON cps.commande_id = c.id
@@ -101,7 +102,7 @@ GROUP BY e.id, e.owner_id, e.nom;
 -- ══════════════════════════════════════════════════════════════════════════
 CREATE VIEW v_lieux_ouverts_maintenant AS
 SELECT DISTINCT
-  lv.id, lv.nom, lv.adresse, lv.lat, lv.lon, lv.geom,
+  lv.id, lv.nom, lv.adresse, lv.lat, lv.lon,
   e.id  AS entreprise_id,
   e.nom AS entreprise_nom
 FROM lieu_de_vente lv
@@ -126,10 +127,16 @@ ORDER BY al.id DESC
 LIMIT 1000;
 
 -- ══════════════════════════════════════════════════════════════════════════
--- 7.7 f_points_relais_proches(geog, rayon, limite) — fonction KNN
+-- 7.7 f_points_relais_proches(lat, lon, rayon, limite) — KNN Haversine
+--
+-- Variante en SQL pur (sans PostGIS) : distance orthodromique via la formule
+-- de Haversine. Rayon Terre = 6371008 m. Précision suffisante pour la Bretagne
+-- et un rayon < 100 km. Pour ~10 points relais → scan complet, largement
+-- sous la milliseconde.
 -- ══════════════════════════════════════════════════════════════════════════
 CREATE FUNCTION f_points_relais_proches(
-  client_geom geography,
+  client_lat  DOUBLE PRECISION,
+  client_lon  DOUBLE PRECISION,
   rayon_m     INTEGER DEFAULT 20000,
   limite      INTEGER DEFAULT 10
 ) RETURNS TABLE (
@@ -138,19 +145,27 @@ CREATE FUNCTION f_points_relais_proches(
   adresse     TEXT,
   distance_m  DOUBLE PRECISION
 ) LANGUAGE SQL STABLE AS $$
-  SELECT pr.id, pr.nom, pr.adresse,
-         ST_Distance(pr.geom, client_geom) AS distance_m
-  FROM point_relais pr
-  WHERE pr.actif = TRUE
-    AND ST_DWithin(pr.geom, client_geom, rayon_m)
-  ORDER BY pr.geom <-> client_geom
+  WITH prox AS (
+    SELECT pr.id, pr.nom, pr.adresse,
+           2 * 6371008.0 * ASIN(SQRT(
+             POWER(SIN(RADIANS(pr.lat - client_lat) / 2), 2)
+             + COS(RADIANS(client_lat)) * COS(RADIANS(pr.lat))
+               * POWER(SIN(RADIANS(pr.lon - client_lon) / 2), 2)
+           )) AS distance_m
+    FROM point_relais pr
+    WHERE pr.actif = TRUE
+  )
+  SELECT id, nom, adresse, distance_m
+  FROM prox
+  WHERE distance_m <= rayon_m
+  ORDER BY distance_m ASC
   LIMIT limite;
 $$;
 
 
 -- Down Migration
 
-DROP FUNCTION IF EXISTS f_points_relais_proches(geography, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS f_points_relais_proches(DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, INTEGER);
 DROP VIEW IF EXISTS v_audit_recent;
 DROP VIEW IF EXISTS v_lieux_ouverts_maintenant;
 DROP VIEW IF EXISTS v_stats_producteur;

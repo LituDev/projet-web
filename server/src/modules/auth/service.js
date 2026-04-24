@@ -61,6 +61,19 @@ export async function registerUser(input) {
         } catch (err) {
           logger.warn({ err: err.message, userId: user.id }, 'Géocodage : insertion échouée');
         }
+      try {
+        const coords = await geocodeAddress(input.adresse);
+        if (coords) {
+          await client.query(
+            `INSERT INTO adresse_geocodee (user_id, lat, lon)
+             VALUES ($1, $2, $3)`,
+            [user.id, coords.lat, coords.lon],
+          );
+        } else {
+          logger.info({ userId: user.id }, 'Géocodage indisponible pour cette adresse');
+        }
+      } catch (err) {
+        logger.warn({ err: err.message, userId: user.id }, 'Géocodage : insertion échouée');
       }
     } else {
       await client.query(

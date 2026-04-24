@@ -1,22 +1,11 @@
-// Génère une URL d'image pour un produit via LoremFlickr (sans clé API).
-// Déterministe : le même produit renvoie toujours la même image grâce au `lock`.
+// URL d'image produit servie par l'API (/api/images/:w/:h/:produitId).
+// Le serveur renvoie l'original redimensionné en WebP, ou un placeholder
+// si le produit n'a pas encore d'image.
 
-function hash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return Math.abs(h) || 1;
-}
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
+const PLACEHOLDER_ID = '00000000-0000-0000-0000-000000000000';
 
-function toKeywords(nom) {
-  return nom
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ',')
-    .replace(/^,+|,+$/g, '');
-}
-
-export function produitImageUrl(produit, w = 400, h = 300) {
-  const kw = toKeywords(produit?.nom || '') || produit?.nature || 'food';
-  const seed = produit?.id ? hash(String(produit.id)) : hash(kw);
-  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(kw)}?lock=${seed}`;
+export function produitImageUrl(produit, w = 400, h = 260) {
+  const id = produit?.id || PLACEHOLDER_ID;
+  return `${API_BASE}/images/${w}/${h}/${id}`;
 }

@@ -7,6 +7,7 @@ import { RouterView, RouterLink } from 'vue-router';
     <aside>
       <h3>Espace producteur</h3>
       <nav>
+        <RouterLink to="/seller/compte"><i class="pi pi-user" /> Mon profil</RouterLink>
         <RouterLink to="/seller/commandes"><i class="pi pi-list" /> Commandes</RouterLink>
         <RouterLink to="/seller/entreprises"><i class="pi pi-building" /> Mes entreprises</RouterLink>
         <RouterLink to="/seller/produits"><i class="pi pi-shopping-bag" /> Mes produits</RouterLink>

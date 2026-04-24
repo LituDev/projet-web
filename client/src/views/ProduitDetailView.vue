@@ -6,6 +6,8 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Message from 'primevue/message';
 import InputNumber from 'primevue/inputnumber';
+import Textarea from 'primevue/textarea';
+import Rating from 'primevue/rating';
 import Popover from 'primevue/popover';
 import InputText from 'primevue/inputtext';
 import { useToast } from 'primevue/usetoast';
@@ -26,6 +28,12 @@ const produit = ref(null);
 const quantite = ref(1);
 const loading = ref(false);
 const err = ref('');
+const avis = ref([]);
+const avisStats = ref({ moyenne: 0, nb_avis: 0 });
+const monAvis = ref(null);
+const note = ref(5);
+const commentaire = ref('');
+const postingAvis = ref(false);
 
 const stockRestant = computed(() => {
   if (!produit.value) return 0;
@@ -99,8 +107,20 @@ async function charger() {
   try {
     const res = await api.get(`/produits/${route.params.id}`);
     produit.value = res.produit;
+    await chargerAvis();
   } catch (e) { err.value = e.message; }
   finally { loading.value = false; }
+}
+
+async function chargerAvis() {
+  const res = await api.get(`/avis/produits/${route.params.id}?limit=8&offset=0`);
+  avis.value = res.data ?? [];
+  avisStats.value = res.stats ?? { moyenne: 0, nb_avis: 0 };
+  monAvis.value = res.mon_avis ?? null;
+  if (monAvis.value) {
+    note.value = monAvis.value.note;
+    commentaire.value = monAvis.value.commentaire;
+  }
 }
 
 function ajouterPanier() {
@@ -133,6 +153,30 @@ async function toggleFavori() {
     });
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 3000 });
+  }
+}
+
+async function publierAvis() {
+  if (!session.user) {
+    toast.add({ severity: 'warn', summary: 'Connexion requise', detail: 'Connectez-vous pour publier un avis.', life: 2200 });
+    return;
+  }
+  if (session.user.role === 'seller') {
+    toast.add({ severity: 'warn', summary: 'Action non autorisée', detail: 'Les producteurs ne peuvent pas publier d’avis.', life: 2200 });
+    return;
+  }
+  postingAvis.value = true;
+  try {
+    await api.post(`/avis/produits/${route.params.id}`, {
+      note: Number(note.value),
+      commentaire: commentaire.value,
+    });
+    toast.add({ severity: 'success', summary: monAvis.value ? 'Avis mis à jour' : 'Avis publié', life: 1800 });
+    await chargerAvis();
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erreur', detail: e.message, life: 2800 });
+  } finally {
+    postingAvis.value = false;
   }
 }
 
@@ -212,25 +256,6 @@ onMounted(charger);
       </template>
     </Card>
   </div>
-
-  <Popover ref="listePopoverRef">
-    <div class="liste-pop">
-      <p class="liste-pop-title">Choisir une liste</p>
-      <p v-if="listesChargement" class="liste-pop-hint">Chargement…</p>
-      <template v-else>
-        <p v-if="listesDisponibles.length === 0" class="liste-pop-hint">Aucune liste existante.</p>
-        <button v-for="l in listesDisponibles" :key="l.id" class="liste-pop-item" @click="ajouterAListe(l.id)">
-          <i class="pi pi-list" /> {{ l.nom }}
-        </button>
-        <div class="liste-pop-create">
-          <InputText v-model="nouveauNomListe" placeholder="Nom de la nouvelle liste" />
-        </div>
-        <button class="liste-pop-item liste-pop-new" @click="creerEtAjouter">
-          <i class="pi pi-plus" /> Créer et ajouter
-        </button>
-      </template>
-    </div>
-  </Popover>
 </template>
 
 <style scoped>
@@ -257,17 +282,4 @@ onMounted(charger);
 .achat-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
 .stock-info { display: block; margin-bottom: 1rem; color: #166534; }
 .stock-info.out { color: #b91c1c; }
-.liste-pop { display: flex; flex-direction: column; gap: .25rem; min-width: 14rem; }
-.liste-pop-title { font-weight: 600; font-size: .9rem; margin: 0 0 .4rem; }
-.liste-pop-hint { font-size: .9rem; color: var(--p-text-muted-color); margin: 0 0 .25rem; }
-.liste-pop-item {
-  display: flex; align-items: center; gap: .5rem;
-  background: none; border: none; cursor: pointer;
-  padding: .45rem .5rem; border-radius: .35rem;
-  font-size: .9rem; text-align: left; width: 100%;
-  transition: background-color .15s;
-}
-.liste-pop-item:hover { background: color-mix(in srgb, #0f172a 8%, transparent); }
-.liste-pop-new { color: var(--p-primary-color); }
-.liste-pop-create { margin-top: .35rem; }
 </style>

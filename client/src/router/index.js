@@ -5,6 +5,7 @@ const routes = [
   { path: '/', name: 'home', component: () => import('../views/HomeView.vue') },
   { path: '/catalogue', name: 'catalogue', component: () => import('../views/CatalogueView.vue') },
   { path: '/produits/:id', name: 'produit-detail', component: () => import('../views/ProduitDetailView.vue') },
+  { path: '/entreprises/:id', name: 'entreprise-detail', component: () => import('../views/EntrepriseDetailView.vue') },
   { path: '/carte', name: 'carte', component: () => import('../views/CarteView.vue') },
   { path: '/panier', name: 'panier', component: () => import('../views/PanierView.vue') },
   {
@@ -53,6 +54,7 @@ const routes = [
     meta: { requiresAuth: true, roles: ['seller', 'admin'] },
     children: [
       { path: '', redirect: '/seller/commandes' },
+      { path: 'compte', name: 'seller-compte', component: () => import('../views/app/CompteView.vue') },
       { path: 'commandes', name: 'seller-commandes', component: () => import('../views/seller/SellerCommandesView.vue') },
       { path: 'entreprises', name: 'seller-entreprises', component: () => import('../views/seller/SellerEntreprisesView.vue') },
       { path: 'produits', name: 'seller-produits', component: () => import('../views/seller/SellerProduitsView.vue') },

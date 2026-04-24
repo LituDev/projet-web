@@ -31,6 +31,15 @@ logs/
 # docker volumes locaux éventuels (en principe docker les garde ailleurs)
 docker-data/
 
+# uploads et cache d'images produits
+server/uploads/
+
+# images déposées pour import manuel (dev)
+db/seed-images/*
+!db/seed-images/.gitkeep
+!db/seed-images/import.js
+!db/seed-images/download.sh
+
 # livrables générés
 DL1_*.pdf
 DL2_*.zip

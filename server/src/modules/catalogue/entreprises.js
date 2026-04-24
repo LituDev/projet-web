@@ -38,7 +38,45 @@ router.get('/:id', async (req, res, next) => {
       [req.params.id],
     );
     if (rows.length === 0) throw new HttpError(404, 'not_found', 'Entreprise introuvable.');
-    res.json({ entreprise: rows[0] });
+
+    const produits = await query(
+      `SELECT id, nom, description, nature, bio, prix_cents, stock, shippable, est_saisonnier
+       FROM v_produits_disponibles
+       WHERE entreprise_id = $1
+       ORDER BY nom ASC`,
+      [req.params.id],
+    );
+
+    const avisStats = await query(
+      `SELECT COALESCE(ROUND(AVG(a.note)::numeric, 2), 0)::float8 AS moyenne,
+              COUNT(*)::int AS nb_avis
+       FROM avis_produit a
+       JOIN produit p ON p.id = a.produit_id
+       WHERE p.entreprise_id = $1`,
+      [req.params.id],
+    );
+
+    const avisRecents = await query(
+      `SELECT a.id, a.note, a.commentaire, a.created_at,
+              p.id AS produit_id, p.nom AS produit_nom,
+              (pc.prenom || ' ' || pc.nom) AS auteur
+       FROM avis_produit a
+       JOIN produit p ON p.id = a.produit_id
+       JOIN profil_client pc ON pc.user_id = a.client_id
+       WHERE p.entreprise_id = $1
+       ORDER BY a.created_at DESC
+       LIMIT 6`,
+      [req.params.id],
+    );
+
+    res.json({
+      entreprise: {
+        ...rows[0],
+        produits: produits.rows,
+        avis_stats: avisStats.rows[0],
+        avis_recents: avisRecents.rows,
+      },
+    });
   } catch (err) { next(err); }
 });
 

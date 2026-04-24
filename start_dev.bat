@@ -1,19 +1,26 @@
 @echo off
 REM ─────────────────────────────────────────────────────────────────────────────
-REM  gumes marketplace — lancement complet avec Docker (dev)
+REM  gumes marketplace — lancement dev local sans Docker (Windows)
 REM
-REM  Chaque demarrage reinitialise la base : teardown + up + migrations + seed
-REM  + images. Puis ouvre deux fenetres : serveur (Express :3000) et client
-REM  (Vite :5173).
+REM  Variante « apporte ton propre PostgreSQL » : se connecte a l'instance
+REM  locale via DATABASE_URL, reset le schema public, applique migrations +
+REM  seed + images, puis ouvre deux fenetres : serveur (Express :3000) et
+REM  client (Vite :5173).
 REM
-REM  Pour un demarrage sans Docker (PostgreSQL natif), utiliser start_dev.bat.
+REM  Prerequis :
+REM    - PostgreSQL >= 13 installe et demarre localement (aucune extension
+REM      n'est requise, gen_random_uuid() est en core PG 13+).
+REM    - La base et l'utilisateur existent deja (cf. DATABASE_URL dans .env).
+REM    - Node >= 20.
+REM
+REM  Aucun psql n'est necessaire : tout passe par Node et le driver pg.
+REM
+REM  Pour un demarrage clef-en-main avec Docker, utiliser start.bat.
 REM ─────────────────────────────────────────────────────────────────────────────
 setlocal
 cd /d "%~dp0"
 
-where docker >nul 2>&1
-if errorlevel 1 (echo Erreur : docker introuvable. & exit /b 1)
-where node   >nul 2>&1
+where node >nul 2>&1
 if errorlevel 1 (echo Erreur : node introuvable ^(node ^>= 20 requis^). & exit /b 1)
 
 REM ── .env ────────────────────────────────────────────────────────────────────
@@ -23,29 +30,8 @@ if not exist .env (
   for /f "usebackq delims=" %%S in (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) do set "SECRET=%%S"
   powershell -NoProfile -Command "(Get-Content .env) -replace '^SESSION_SECRET=.*', 'SESSION_SECRET=%SECRET%' | Set-Content .env"
   echo     SESSION_SECRET genere.
+  echo     Ajuste DATABASE_URL dans .env pour pointer sur ton PostgreSQL local.
 )
-
-REM ── Teardown ────────────────────────────────────────────────────────────────
-echo --^> Teardown de la base ^(docker compose down -v^)...
-docker compose down -v --remove-orphans 1>nul 2>nul
-
-REM ── Up Postgres ─────────────────────────────────────────────────────────────
-echo --^> Demarrage de PostgreSQL + Adminer...
-docker compose up -d
-if errorlevel 1 (echo Echec du docker compose up. & exit /b 1)
-
-REM ── Attente healthcheck ─────────────────────────────────────────────────────
-echo --^> Attente du healthcheck...
-set /a ATTEMPTS=0
-:waitloop
-docker compose exec -T db pg_isready -U gumes -d gumes_marketplace >nul 2>nul
-if %errorlevel%==0 goto ready
-set /a ATTEMPTS+=1
-if %ATTEMPTS% GEQ 60 (echo Timeout en attendant la base. & exit /b 1)
-timeout /t 1 /nobreak >nul
-goto waitloop
-:ready
-echo     Base prete.
 
 REM ── Dependances ─────────────────────────────────────────────────────────────
 if not exist node_modules (
@@ -54,18 +40,17 @@ if not exist node_modules (
   if errorlevel 1 (echo Echec de npm install. & exit /b 1)
 )
 
-REM ── Migrations + seed + images ──────────────────────────────────────────────
-echo --^> Preparation de la base ^(migrations + seed + images^)...
+REM ── Reset + migrations + seed + images ──────────────────────────────────────
+echo --^> Preparation de la base ^(reset + migrations + seed + images^)...
 call npm run db:prep
-if errorlevel 1 (echo Echec de la preparation. & exit /b 1)
+if errorlevel 1 (echo Echec de la preparation. Verifie DATABASE_URL et que PostgreSQL tourne. & exit /b 1)
 
 REM ── Lancement serveur + client (fenetres separees) ──────────────────────────
 echo.
 echo ======================================================================
-echo   gumes marketplace est pret.
+echo   gumes marketplace est pret (PostgreSQL natif, sans Docker).
 echo     - API     http://localhost:3000
 echo     - Client  http://localhost:5173
-echo     - Adminer http://localhost:8080
 echo.
 echo   Comptes de demo (mot de passe : GumesDev!2026)
 echo     admin@gumes.local ^| producteur1@gumes.local ... ^| client1@gumes.local ...

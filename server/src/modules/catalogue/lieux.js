@@ -63,9 +63,8 @@ router.post('/', requireRole('seller', 'admin'), async (req, res, next) => {
     await assertEntrepriseOwner(body.entreprise_id, req.session);
     const lieu = await withTransaction(async (client) => {
       const { rows } = await client.query(
-        `INSERT INTO lieu_de_vente (entreprise_id, nom, adresse, lat, lon, geom, actif)
-         VALUES ($1, $2, $3, $4, $5,
-           ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6)
+        `INSERT INTO lieu_de_vente (entreprise_id, nom, adresse, lat, lon, actif)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, entreprise_id, nom, adresse, lat, lon, actif`,
         [body.entreprise_id, body.nom, body.adresse, body.lat, body.lon, body.actif],
       );
@@ -91,11 +90,8 @@ router.patch('/:id', requireRole('seller', 'admin'), async (req, res, next) => {
       const fields = Object.entries(scalar);
       if (fields.length > 0) {
         const set = fields.map(([k], i) => `${k} = $${i + 2}`).join(', ');
-        const geomUpdate = scalar.lat != null && scalar.lon != null
-          ? `, geom = ST_SetSRID(ST_MakePoint($${fields.findIndex(([k]) => k === 'lon') + 2}, $${fields.findIndex(([k]) => k === 'lat') + 2}), 4326)::geography`
-          : '';
         await client.query(
-          `UPDATE lieu_de_vente SET ${set}${geomUpdate} WHERE id = $1`,
+          `UPDATE lieu_de_vente SET ${set} WHERE id = $1`,
           [req.params.id, ...fields.map(([, v]) => v)],
         );
       }

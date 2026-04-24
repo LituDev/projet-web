@@ -13,10 +13,14 @@
     "start": "npm --workspace server start",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
+    "db:reset:schema": "node scripts/reset-schema.js",
     "db:migrate": "npm --workspace server run db:migrate",
     "db:migrate:down": "npm --workspace server run db:migrate:down",
     "db:seed": "npm --workspace server run db:seed",
-    "db:reset": "docker compose down -v && docker compose up -d && sleep 3 && npm run db:migrate && npm run db:seed",
+    "db:prep": "npm run db:reset:schema && npm run db:migrate && npm run db:seed && npm run images:download && npm run images:import",
+    "db:reset": "npm run db:prep",
+    "images:download": "node db/seed-images/download.js",
+    "images:import": "npm --workspace server run images:import",
     "test": "npm --workspace server run test"
   },
   "engines": {
